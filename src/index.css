@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: 'Fleur De Leah';
+  src:
+    url('/fonts/FleurDeLeah-Regular.woff2') format('woff2'),
+    url('/fonts/FleurDeLeah-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@theme {
+  --color-lilac-100: #e6d7ff;
+  --color-lilac-200: #e7d1ff;
+  --color-lilac-300: #e1c4ff;
+  --color-lilac-400: #d8b9ff;
+  --color-lilac-500: #d2afff;
+
+  --font-sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-fleur: 'Fleur De Leah', cursive;
+}
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  background: #ffffff;
+  color: #3f3450;
+  font-family: var(--font-sans);
+}

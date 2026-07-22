@@ -1,0 +1,19 @@
+RewriteEngine On
+
+# Serve arquivos e pastas reais normalmente (assets do build).
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Qualquer outra rota (/, /jose-14, /jose-14/confirmar, /admin, ...)
+# cai no index.html para o React Router assumir o roteamento.
+RewriteRule ^ index.html [L]
+
+# Cache leve para os assets versionados do build (Vite gera hash no nome).
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/css "access plus 1 year"
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType image/svg+xml "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+</IfModule>
