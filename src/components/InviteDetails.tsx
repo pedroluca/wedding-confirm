@@ -1,4 +1,4 @@
-import heroImg from '../assets/brasao.png'
+import heroImg from '../assets/LOGO.png'
 import { weddingInfo } from '../weddingInfo'
 
 export function InviteDetails({ isHome = false }: { isHome?: boolean }) {
@@ -10,12 +10,10 @@ export function InviteDetails({ isHome = false }: { isHome?: boolean }) {
         className="mx-auto mb-8 w-50 rounded-full shadow-lg shadow-lilac-200"
       />
       {/* <p className="text-sm tracking-[0.3em] text-lilac-500 uppercase">Casamento</p> */}
-      <h1 className="font-fleur mt-2 text-6xl font-normal text-[#3f3450]">
-        {weddingInfo.partner1Name}
-        <br />
-        <span className="text-5xl">&amp;</span>
-        <br />
-        {weddingInfo.partner2Name}
+      <h1 className="font-sans mt-2 text-5xl font-normal text-[#3f3450]">
+        <span className="block">{weddingInfo.partner1Name}</span>
+        <span className=" block text-3xl leading-none">e</span>
+        <span className="block">{weddingInfo.partner2Name}</span>
       </h1>
 
       {!isHome && (
