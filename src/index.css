@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&display=swap');
 @import "tailwindcss";
 
 @font-face {
@@ -21,13 +22,26 @@
 }
 
 @theme {
-  --color-lilac-100: #e6d7ff;
-  --color-lilac-200: #e7d1ff;
-  --color-lilac-300: #e1c4ff;
-  --color-lilac-400: #d8b9ff;
-  --color-lilac-500: #d2afff;
+  /* Cor de marca do evento atual (classes bg-brand-primary, text-brand-primary
+     etc). --color-brand-primary é sobrescrita em runtime por EventLayout a
+     partir de events.color_primary (ver src/pages/EventLayout.tsx) — o valor
+     abaixo é só o fallback fora de uma rota /:eventSlug/* (admin, super-admin,
+     página ainda carregando), por isso usa a cor da própria marca Presenzo.
+     Como o Tailwind gera as classes referenciando a variável (não o valor
+     literal), e -hover/-soft são derivadas dela via color-mix(), sobrescrever
+     só --color-brand-primary já atualiza as três. */
+  --color-brand-primary: #c77b87;
+  --color-brand-primary-hover: color-mix(in srgb, var(--color-brand-primary) 82%, black);
+  --color-brand-primary-soft: color-mix(in srgb, var(--color-brand-primary) 18%, white);
+
+  /* Cores fixas da marca Presenzo (dourado -> rosê), usadas só no chrome do
+     próprio produto (ex: landing em Home.tsx) — nunca sobrescritas por
+     evento, ao contrário de --color-brand-primary acima. */
+  --color-presenzo-gold: #d4a657;
+  --color-presenzo-rose: #c77b87;
 
   --font-sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Poppins', system-ui, sans-serif;
   --font-fleur: 'Fleur De Leah', cursive;
   --font-pinyon: 'Pinyon Script', cursive;
 }

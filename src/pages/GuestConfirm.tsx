@@ -6,7 +6,7 @@ import { PageShell } from '../components/PageShell'
 import type { GuestInviteResponse } from '../types'
 
 export default function GuestConfirm() {
-  const { slug = '' } = useParams()
+  const { eventSlug = '', guestSlug = '' } = useParams()
   const [data, setData] = useState<GuestInviteResponse | null>(null)
   const [checked, setChecked] = useState<Record<number, boolean>>({})
   const [error, setError] = useState<string | null>(null)
@@ -17,7 +17,7 @@ export default function GuestConfirm() {
   useEffect(() => {
     let active = true
     api
-      .get<GuestInviteResponse>(`/guests/${slug}`)
+      .get<GuestInviteResponse>(`/events/${eventSlug}/guests/${guestSlug}`)
       .then((res) => {
         if (!active) return
         setData(res)
@@ -37,14 +37,14 @@ export default function GuestConfirm() {
     return () => {
       active = false
     }
-  }, [slug])
+  }, [eventSlug, guestSlug])
 
   const handleSubmit = async () => {
     if (!data) return
     setSaving(true)
     setError(null)
     try {
-      await api.post(`/guests/${slug}/confirm`, {
+      await api.post(`/events/${eventSlug}/guests/${guestSlug}/confirm`, {
         items: data.members.map((m) => ({ id: m.id, confirmed: checked[m.id] ?? false })),
       })
       setDone(true)
@@ -77,6 +77,13 @@ export default function GuestConfirm() {
         <div className="max-w-sm text-center">
           <h1 className="text-2xl font-semibold text-[#3f3450]">Presença registrada!</h1>
           <p className="mt-3 text-[#6b5d80]">Obrigado por confirmar. Vejo você no grande dia 💜</p>
+
+          <Link
+            to={`/${eventSlug}/${guestSlug}/presentes`}
+            className="mt-8 block w-full rounded-full border border-brand-primary-soft px-8 py-4 font-semibold text-brand-primary transition hover:bg-brand-primary-soft"
+          >
+            Não sabe o que dar de presente?
+          </Link>
         </div>
       </PageShell>
     )
@@ -110,12 +117,12 @@ export default function GuestConfirm() {
           type="button"
           disabled={saving}
           onClick={handleSubmit}
-          className="cursor-pointer mt-8 w-full rounded-full bg-lilac-500 px-8 py-4 text-lg font-semibold text-white shadow-lg shadow-lilac-300 transition hover:bg-[#c298ff] disabled:opacity-60"
+          className="cursor-pointer mt-8 w-full rounded-full bg-brand-primary px-8 py-4 text-lg font-semibold text-white shadow-lg shadow-brand-primary-soft transition hover:bg-brand-primary-hover disabled:opacity-60"
         >
           {saving ? 'Enviando...' : 'Confirmar presença'}
         </button>
 
-        <Link to={`/${slug}`} className="mt-4 block text-center text-sm text-lilac-500 underline">
+        <Link to={`/${eventSlug}/${guestSlug}`} className="mt-4 block text-center text-sm text-brand-primary underline">
           Voltar ao convite
         </Link>
       </div>

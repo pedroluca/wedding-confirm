@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api, ApiError } from '../lib/api'
-import { DevCredit } from '../components/DevCredit'
 import { InviteDetails } from '../components/InviteDetails'
 import { PageShell } from '../components/PageShell'
 import type { GuestInviteResponse } from '../types'
 
 export default function GuestInvite() {
-  const { slug = '' } = useParams()
+  const { eventSlug = '', guestSlug = '' } = useParams()
   const navigate = useNavigate()
   const [data, setData] = useState<GuestInviteResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -20,7 +19,7 @@ export default function GuestInvite() {
       setLoading(true)
       setError(null)
       api
-        .get<GuestInviteResponse>(`/guests/${slug}`)
+        .get<GuestInviteResponse>(`/events/${eventSlug}/guests/${guestSlug}`)
         .then((res) => {
           if (active) setData(res)
         })
@@ -41,7 +40,7 @@ export default function GuestInvite() {
     return () => {
       active = false
     }
-  }, [slug])
+  }, [eventSlug, guestSlug])
 
   if (loading) {
     return (
@@ -59,19 +58,14 @@ export default function GuestInvite() {
     )
   }
 
-  // const greeting = data.has_dependents
-  //   ? `${data.titular.name}, confirme a presença de vocês`
-  //   : `${data.titular.name}, confirme a sua presença`
-
   return (
-    <PageShell footer={<DevCredit />}>
+    <PageShell>
       <div className="w-full max-w-md text-center">
         <InviteDetails />
-        {/* <p className="mt-10 text-xl font-medium text-[#3f3450]">{greeting}</p> */}
         <button
           type="button"
-          onClick={() => navigate(`/${slug}/confirmar`)}
-          className="cursor-pointer mt-6 w-full rounded-full bg-lilac-500 px-8 py-4 text-lg font-semibold text-white shadow-lg shadow-lilac-300 transition hover:bg-[#c298ff]"
+          onClick={() => navigate(`/${eventSlug}/${guestSlug}/confirmar`)}
+          className="cursor-pointer mt-6 w-full rounded-full bg-brand-primary px-8 py-4 text-lg font-semibold text-white shadow-lg shadow-brand-primary-soft transition hover:bg-brand-primary-hover"
         >
           Confirmar presença
         </button>

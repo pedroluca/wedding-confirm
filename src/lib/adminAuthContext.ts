@@ -5,7 +5,7 @@ export type Session = { token: string; admin: AdminInfo }
 
 export type AuthContextValue = {
   session: Session | null
-  login: (email: string, password: string) => Promise<void>
+  login: (email: string, password: string) => Promise<Session>
   logout: () => void
 }
 

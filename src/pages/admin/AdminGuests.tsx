@@ -1,11 +1,13 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { api } from '../../lib/api'
 import { useAdminAuth } from '../../lib/adminAuthContext'
+import { useAdminEvent } from '../../lib/adminEventContext'
 import { StatusBadge } from '../../components/StatusBadge'
 import type { AdminGuest } from '../../types'
 
 export default function AdminGuests() {
   const { session } = useAdminAuth()
+  const event = useAdminEvent()
   const token = session?.token ?? null
   const [guests, setGuests] = useState<AdminGuest[]>([])
   const [loading, setLoading] = useState(true)
@@ -67,9 +69,10 @@ export default function AdminGuests() {
     }
   }
 
+  const guestLink = (slug: string) => `${window.location.origin}/${event.slug}/${slug}`
+
   const copyLink = (slug: string) => {
-    const link = `${window.location.origin}/${slug}`
-    navigator.clipboard.writeText(link).then(() => {
+    navigator.clipboard.writeText(guestLink(slug)).then(() => {
       setCopiedSlug(slug)
       setTimeout(() => setCopiedSlug((current) => (current === slug ? null : current)), 2000)
     })
@@ -84,7 +87,7 @@ export default function AdminGuests() {
       <p className="mt-1 text-sm text-[#8b7a9c]">
         Cada convidado titular recebe um link próprio para confirmar a presença dele e de seus relacionados.
       </p>
-      <p className="mt-2 text-sm font-medium text-lilac-500">
+      <p className="mt-2 text-sm font-medium text-brand-primary">
         {totalTitulares} {totalTitulares === 1 ? 'convite' : 'convites'} · {totalPessoas}{' '}
         {totalPessoas === 1 ? 'pessoa no total' : 'pessoas no total'}
       </p>
@@ -94,12 +97,12 @@ export default function AdminGuests() {
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
           placeholder="Nome do convidado"
-          className="min-w-50 flex-1 rounded-xl border border-lilac-200 px-4 py-2 outline-none focus:border-lilac-500"
+          className="min-w-50 flex-1 rounded-xl border border-brand-primary-soft px-4 py-2 outline-none focus:border-brand-primary"
         />
         <button
           type="submit"
           disabled={creating}
-          className="cursor-pointer rounded-full bg-lilac-500 px-6 py-2 font-semibold text-white transition hover:bg-[#c298ff] disabled:opacity-60"
+          className="cursor-pointer rounded-full bg-brand-primary px-6 py-2 font-semibold text-white transition hover:bg-brand-primary-hover disabled:opacity-60"
         >
           Adicionar convidado
         </button>
@@ -112,16 +115,16 @@ export default function AdminGuests() {
       ) : (
         <ul className="mt-8 space-y-4">
           {guests.map((guest) => (
-            <li key={guest.id} className="rounded-2xl border border-lilac-200 p-5">
+            <li key={guest.id} className="rounded-2xl border border-brand-primary-soft p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="font-medium text-[#3f3450]">{guest.name}</p>
                   <button
                     type="button"
                     onClick={() => copyLink(guest.slug)}
-                    className="cursor-copy mt-1 text-sm text-lilac-500 underline underline-offset-4"
+                    className="cursor-copy mt-1 text-sm text-brand-primary underline underline-offset-4"
                   >
-                    {copiedSlug === guest.slug ? 'Link copiado!' : `${window.location.origin}/${guest.slug}`}
+                    {copiedSlug === guest.slug ? 'Link copiado!' : guestLink(guest.slug)}
                   </button>
                 </div>
                 <div className="flex items-center gap-3">
@@ -137,7 +140,7 @@ export default function AdminGuests() {
               </div>
 
               {guest.dependents.length > 0 && (
-                <ul className="mt-4 space-y-2 border-t border-lilac-100 pt-4">
+                <ul className="mt-4 space-y-2 border-t border-brand-primary-soft pt-4">
                   {guest.dependents.map((dep) => (
                     <li key={dep.id} className="flex items-center justify-between gap-3 pl-4">
                       <span className="text-[#3f3450]">{dep.name}</span>
@@ -161,12 +164,12 @@ export default function AdminGuests() {
                   value={dependentDrafts[guest.id] ?? ''}
                   onChange={(e) => setDependentDrafts((prev) => ({ ...prev, [guest.id]: e.target.value }))}
                   placeholder="Nome do relacionado"
-                  className="flex-1 rounded-xl border border-lilac-200 px-3 py-1.5 text-sm outline-none focus:border-lilac-500"
+                  className="flex-1 rounded-xl border border-brand-primary-soft px-3 py-1.5 text-sm outline-none focus:border-brand-primary"
                 />
                 <button
                   type="button"
                   onClick={() => handleAddDependent(guest.id)}
-                  className="cursor-pointer rounded-full border border-lilac-300 px-4 py-1.5 text-sm font-medium text-lilac-500 hover:bg-lilac-100"
+                  className="cursor-pointer rounded-full border border-brand-primary-soft px-4 py-1.5 text-sm font-medium text-brand-primary hover:bg-brand-primary-soft"
                 >
                   Adicionar
                 </button>

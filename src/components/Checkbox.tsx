@@ -12,12 +12,12 @@ export function Checkbox({ checked, onChange, label }: CheckboxProps) {
       aria-checked={checked}
       onClick={() => onChange(!checked)}
       className={`cursor-pointer flex w-full items-center gap-4 rounded-2xl border px-5 py-4 text-left transition ${
-        checked ? 'border-lilac-500 bg-lilac-100/60 shadow-sm' : 'border-lilac-200 bg-white'
+        checked ? 'border-brand-primary bg-brand-primary-soft shadow-sm' : 'border-brand-primary-soft bg-white'
       }`}
     >
       <span
         className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition ${
-          checked ? 'border-lilac-500 bg-lilac-500' : 'border-lilac-300 bg-white'
+          checked ? 'border-brand-primary bg-brand-primary' : 'border-brand-primary-soft bg-white'
         }`}
       >
         {checked && (

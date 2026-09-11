@@ -64,8 +64,8 @@ export default function AdminConfirmations() {
             onClick={() => setFilter(f.key)}
             className={`cursor-pointer rounded-full px-4 py-2 text-sm font-medium transition ${
               filter === f.key
-                ? 'bg-lilac-500 text-white'
-                : 'border border-lilac-200 text-[#3f3450] hover:bg-lilac-100'
+                ? 'bg-brand-primary text-white'
+                : 'border border-brand-primary-soft text-[#3f3450] hover:bg-brand-primary-soft'
             }`}
           >
             {f.label}
@@ -76,9 +76,9 @@ export default function AdminConfirmations() {
       {loading ? (
         <p className="mt-8 text-[#8b7a9c]">Carregando...</p>
       ) : (
-        <div className="mt-6 overflow-hidden rounded-2xl border border-lilac-200">
+        <div className="mt-6 overflow-hidden rounded-2xl border border-brand-primary-soft">
           <table className="w-full text-left text-sm">
-            <thead className="bg-lilac-100/60 text-[#3f3450]">
+            <thead className="bg-brand-primary-soft/60 text-[#3f3450]">
               <tr>
                 <th className="px-4 py-3">Nome</th>
                 <th className="px-4 py-3">Grupo</th>
@@ -87,7 +87,7 @@ export default function AdminConfirmations() {
             </thead>
             <tbody>
               {filtered.map((row) => (
-                <tr key={row.id} className="border-t border-lilac-100">
+                <tr key={row.id} className="border-t border-brand-primary-soft">
                   <td className="px-4 py-3 text-[#3f3450]">{row.name}</td>
                   <td className="px-4 py-3 text-[#8b7a9c]">{row.group}</td>
                   <td className="px-4 py-3">

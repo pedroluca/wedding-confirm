@@ -1,53 +1,86 @@
-import heroImg from '../assets/LOGO.png'
-import { weddingInfo } from '../weddingInfo'
+import { useEvent } from '../lib/eventContext'
+
+const dateFormatter = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })
+const timeFormatter = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' })
+
+function formatEventDate(mysqlDateTime: string): string {
+  // DATETIME do MySQL chega como "2026-12-13 10:30:00" (sem timezone); troca
+  // o espaço por "T" pra evitar que o browser interprete o formato errado.
+  const date = new Date(mysqlDateTime.replace(' ', 'T'))
+  if (Number.isNaN(date.getTime())) return mysqlDateTime
+
+  return `${dateFormatter.format(date)} às ${timeFormatter.format(date).replace(':', 'h')}`
+}
 
 export function InviteDetails({ isHome = false }: { isHome?: boolean }) {
+  const event = useEvent()
+  const isWedding = event.event_type === 'wedding'
+
   return (
     <div className="mx-auto w-full max-w-md text-center">
-      <img
-        src={heroImg}
-        alt=""
-        className="mx-auto mb-8 w-50 rounded-full shadow-lg shadow-lilac-200"
-      />
-      {/* <p className="text-sm tracking-[0.3em] text-lilac-500 uppercase">Casamento</p> */}
+      {event.logo_url && (
+        <img
+          src={event.logo_url}
+          alt=""
+          className="mx-auto mb-8 w-50 rounded-full shadow-lg shadow-brand-primary-soft"
+        />
+      )}
       <h1 className="font-sans mt-2 text-5xl font-normal text-[#3f3450]">
-        <span className="block">{weddingInfo.partner1Name}</span>
-        <span className=" block text-3xl leading-none">e</span>
-        <span className="block">{weddingInfo.partner2Name}</span>
+        <span className="block">{event.host_name}</span>
+        {event.host_name_secondary && (
+          <>
+            <span className="block text-3xl leading-none">e</span>
+            <span className="block">{event.host_name_secondary}</span>
+          </>
+        )}
       </h1>
 
       {!isHome && (
         <>
-          <p className="mt-4 text-lg text-[#6b5d80]">
-            {weddingInfo.dateLabel} às {weddingInfo.time}
-          </p>
+          {event.event_date && (
+            <p className="mt-4 text-lg text-[#6b5d80]">{formatEventDate(event.event_date)}</p>
+          )}
 
-          <dl className="mt-8 space-y-4 rounded-3xl border border-lilac-200 bg-lilac-100/40 p-6 text-left">
-            <div>
-              <dt className="text-xs font-semibold tracking-wide text-lilac-500 uppercase">Cerimônia</dt>
-              <dd className="text-[#3f3450]">{weddingInfo.ceremonyVenue}</dd>
-            </div>
-            <div>
-              <dt className="text-xs font-semibold tracking-wide text-lilac-500 uppercase">Festa</dt>
-              <dd className="text-[#3f3450]">{weddingInfo.receptionVenue}</dd>
-            </div>
-            <div>
-              <dt className="text-xs font-semibold tracking-wide text-lilac-500 uppercase">Endereço</dt>
-              <dd className="text-[#3f3450]">
-                <a
-                  href={weddingInfo.mapsUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="underline decoration-lilac-400 underline-offset-4"
-                >
-                  {weddingInfo.address}
-                </a>
-              </dd>
-            </div>
-            {/* <div>
-              <dt className="text-xs font-semibold tracking-wide text-lilac-500 uppercase">Traje</dt>
-              <dd className="text-[#3f3450]">{weddingInfo.dressCode}</dd>
-            </div> */}
+          <dl className="mt-8 space-y-4 rounded-3xl border border-brand-primary-soft bg-brand-primary-soft p-6 text-left">
+            {event.venue_name && (
+              <div>
+                <dt className="text-xs font-semibold tracking-wide text-brand-primary uppercase">
+                  {isWedding ? 'Cerimônia' : 'Local'}
+                </dt>
+                <dd className="text-[#3f3450]">{event.venue_name}</dd>
+              </div>
+            )}
+            {isWedding && event.venue_name_secondary && (
+              <div>
+                <dt className="text-xs font-semibold tracking-wide text-brand-primary uppercase">Festa</dt>
+                <dd className="text-[#3f3450]">{event.venue_name_secondary}</dd>
+              </div>
+            )}
+            {event.address && (
+              <div>
+                <dt className="text-xs font-semibold tracking-wide text-brand-primary uppercase">Endereço</dt>
+                <dd className="text-[#3f3450]">
+                  {event.maps_url ? (
+                    <a
+                      href={event.maps_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="underline decoration-brand-primary underline-offset-4"
+                    >
+                      {event.address}
+                    </a>
+                  ) : (
+                    event.address
+                  )}
+                </dd>
+              </div>
+            )}
+            {event.dress_code && (
+              <div>
+                <dt className="text-xs font-semibold tracking-wide text-brand-primary uppercase">Traje</dt>
+                <dd className="text-[#3f3450]">{event.dress_code}</dd>
+              </div>
+            )}
           </dl>
         </>
       )}

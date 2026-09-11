@@ -28,6 +28,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => {
     const data = await api.post<Session>('/admin/login', { email, password })
     setSession(data)
+    return data
   }
 
   const logout = () => {
