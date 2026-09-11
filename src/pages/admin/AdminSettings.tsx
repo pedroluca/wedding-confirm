@@ -2,7 +2,7 @@ import { useRef, useState, type FormEvent } from 'react'
 import { api, ApiError } from '../../lib/api'
 import { useAdminAuth } from '../../lib/adminAuthContext'
 import { useAdminEvent } from '../../lib/adminEventContext'
-import type { AdminEvent, EventType } from '../../types'
+import type { AdminEvent, EventType, NameFont } from '../../types'
 
 type SettingsForm = {
   host_name: string
@@ -15,8 +15,15 @@ type SettingsForm = {
   dress_code: string
   pix_key: string
   color_primary: string
+  name_font: NameFont
   logo: File | null
 }
+
+const NAME_FONT_OPTIONS: { value: NameFont; label: string; fontFamily: string }[] = [
+  { value: 'sans', label: 'Padrão', fontFamily: 'inherit' },
+  { value: 'fleur', label: 'Caligrafia (Fleur De Leah)', fontFamily: "'Fleur De Leah', cursive" },
+  { value: 'pinyon', label: 'Caligrafia (Pinyon Script)', fontFamily: "'Pinyon Script', cursive" },
+]
 
 const dateTimeFormatter = new Intl.DateTimeFormat('pt-BR', {
   day: 'numeric',
@@ -49,6 +56,7 @@ function toFormState(event: AdminEvent): SettingsForm {
     dress_code: event.dress_code ?? '',
     pix_key: event.pix_key ?? '',
     color_primary: event.color_primary,
+    name_font: event.name_font,
     logo: null,
   }
 }
@@ -65,6 +73,7 @@ function toFormData(form: SettingsForm): FormData {
   data.set('dress_code', form.dress_code.trim())
   data.set('pix_key', form.pix_key.trim())
   data.set('color_primary', form.color_primary)
+  data.set('name_font', form.name_font)
   if (form.logo) {
     data.set('logo', form.logo)
   }
@@ -169,6 +178,21 @@ export default function AdminSettings() {
             onChange={(e) => setForm((prev) => ({ ...prev, color_primary: e.target.value }))}
             className="mt-1 h-10 w-full rounded-xl border border-brand-primary-soft px-1 outline-none"
           />
+        </label>
+
+        <label className="text-sm font-medium text-[#3f3450]">
+          Fonte do nome
+          <select
+            value={form.name_font}
+            onChange={(e) => setForm((prev) => ({ ...prev, name_font: e.target.value as NameFont }))}
+            className="mt-1 w-full rounded-xl border border-brand-primary-soft px-4 py-2 outline-none focus:border-brand-primary"
+          >
+            {NAME_FONT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value} style={{ fontFamily: option.fontFamily }}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </label>
 
         <label className="text-sm font-medium text-[#3f3450]">

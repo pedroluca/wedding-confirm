@@ -1,4 +1,17 @@
 import { useEvent } from '../lib/eventContext'
+import type { NameFont } from '../types'
+
+const NAME_FONT_CLASSES: Record<NameFont, string> = {
+  sans: 'font-sans text-5xl',
+  fleur: 'font-fleur text-6xl',
+  pinyon: 'font-pinyon text-6xl',
+}
+
+const NAME_FONT_CLASSES_COMPACT: Record<NameFont, string> = {
+  sans: 'font-sans text-2xl',
+  fleur: 'font-fleur text-4xl',
+  pinyon: 'font-pinyon text-4xl',
+}
 
 const dateFormatter = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })
 const timeFormatter = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' })
@@ -12,7 +25,13 @@ function formatEventDate(mysqlDateTime: string): string {
   return `${dateFormatter.format(date)} às ${timeFormatter.format(date).replace(':', 'h')}`
 }
 
-export function InviteDetails({ isHome = false }: { isHome?: boolean }) {
+export function InviteDetails({
+  isHome = false,
+  compact = false,
+}: {
+  isHome?: boolean
+  compact?: boolean
+}) {
   const event = useEvent()
   const isWedding = event.event_type === 'wedding'
 
@@ -22,20 +41,26 @@ export function InviteDetails({ isHome = false }: { isHome?: boolean }) {
         <img
           src={event.logo_url}
           alt=""
-          className="mx-auto mb-8 w-50 rounded-full shadow-lg shadow-brand-primary-soft"
+          className={
+            compact
+              ? 'mx-auto mb-3 w-20 rounded-full shadow-md shadow-brand-primary-soft'
+              : 'mx-auto mb-8 w-50 rounded-full shadow-lg shadow-brand-primary-soft'
+          }
         />
       )}
-      <h1 className="font-sans mt-2 text-5xl font-normal text-[#3f3450]">
+      <h1
+        className={`${compact ? NAME_FONT_CLASSES_COMPACT[event.name_font] : NAME_FONT_CLASSES[event.name_font]} ${compact ? '' : 'mt-2'} font-normal text-[#3f3450]`}
+      >
         <span className="block">{event.host_name}</span>
         {event.host_name_secondary && (
           <>
-            <span className="block text-3xl leading-none">e</span>
+            <span className={compact ? 'block text-base leading-none' : 'block text-3xl leading-none'}>e</span>
             <span className="block">{event.host_name_secondary}</span>
           </>
         )}
       </h1>
 
-      {!isHome && (
+      {!isHome && !compact && (
         <>
           {event.event_date && (
             <p className="mt-4 text-lg text-[#6b5d80]">{formatEventDate(event.event_date)}</p>

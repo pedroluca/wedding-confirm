@@ -7,8 +7,8 @@ import { PageShell } from '../components/PageShell'
 const WHATSAPP_URL = 'https://wa.me/5577936181281'
 
 const STEPS = [
-  { title: 'Fale com a gente', description: 'Conta sobre o seu evento pelo WhatsApp e a gente configura tudo pra você.' },
-  { title: 'Personalize', description: 'Cores, nomes, data, local e logo — do jeito que combina com a sua celebração.' },
+  { title: 'Fale com a gente', description: 'Fale com a gente pelo WhatsApp e ativamos seu evento.' },
+  { title: 'Personalize', description: 'Você personaliza tudo do seu jeito — cores, textos, convidados, presentes.' },
   { title: 'Compartilhe o link', description: 'Envie pros convidados confirmarem presença e verem a lista de presentes.' },
 ]
 

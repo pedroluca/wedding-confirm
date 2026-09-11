@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { useParams } from 'react-router-dom'
 import { api, ApiError } from '../../lib/api'
 import { useAdminAuth } from '../../lib/adminAuthContext'
-import type { EventType, SuperEvent } from '../../types'
+import type { EventType, NameFont, SuperEvent } from '../../types'
 
 type EditForm = {
   event_type: EventType
@@ -16,11 +16,18 @@ type EditForm = {
   dress_code: string
   pix_key: string
   color_primary: string
+  name_font: NameFont
   access_expires_at: string
   price_charged: string
   last_payment_at: string
   payment_notes: string
 }
+
+const NAME_FONT_OPTIONS: { value: NameFont; label: string; fontFamily: string }[] = [
+  { value: 'sans', label: 'Padrão', fontFamily: 'inherit' },
+  { value: 'fleur', label: 'Caligrafia (Fleur De Leah)', fontFamily: "'Fleur De Leah', cursive" },
+  { value: 'pinyon', label: 'Caligrafia (Pinyon Script)', fontFamily: "'Pinyon Script', cursive" },
+]
 
 function toDatetimeLocalValue(mysqlDateTime: string | null): string {
   if (!mysqlDateTime) return ''
@@ -40,6 +47,7 @@ function toFormState(event: SuperEvent): EditForm {
     dress_code: event.dress_code ?? '',
     pix_key: event.pix_key ?? '',
     color_primary: event.color_primary,
+    name_font: event.name_font,
     access_expires_at: toDatetimeLocalValue(event.access_expires_at),
     price_charged: event.price_charged !== null ? String(event.price_charged) : '',
     last_payment_at: event.last_payment_at ?? '',
@@ -86,6 +94,7 @@ export default function SuperEventEdit() {
           dress_code: form.dress_code.trim() || undefined,
           pix_key: form.pix_key.trim() || undefined,
           color_primary: form.color_primary,
+          name_font: form.name_font,
           access_expires_at: form.access_expires_at || undefined,
           price_charged: form.price_charged || undefined,
           last_payment_at: form.last_payment_at || undefined,
@@ -166,6 +175,21 @@ export default function SuperEventEdit() {
             onChange={(e) => setForm((prev) => prev && { ...prev, color_primary: e.target.value })}
             className="mt-1 h-10 w-full rounded-xl border border-brand-primary-soft px-1 outline-none"
           />
+        </label>
+
+        <label className="text-sm font-medium text-[#3f3450]">
+          Fonte do nome
+          <select
+            value={form.name_font}
+            onChange={(e) => setForm((prev) => prev && { ...prev, name_font: e.target.value as NameFont })}
+            className="mt-1 w-full rounded-xl border border-brand-primary-soft px-4 py-2 outline-none focus:border-brand-primary"
+          >
+            {NAME_FONT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value} style={{ fontFamily: option.fontFamily }}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </label>
 
         <label className="text-sm font-medium text-[#3f3450]">

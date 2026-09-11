@@ -2,7 +2,7 @@ import { useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api, ApiError } from '../../lib/api'
 import { useAdminAuth } from '../../lib/adminAuthContext'
-import type { EventType, SuperEvent } from '../../types'
+import type { EventType, NameFont, SuperEvent } from '../../types'
 
 type CreateForm = {
   event_type: EventType
@@ -16,10 +16,17 @@ type CreateForm = {
   dress_code: string
   pix_key: string
   color_primary: string
+  name_font: NameFont
   logo: File | null
   admin_name: string
   admin_email: string
 }
+
+const NAME_FONT_OPTIONS: { value: NameFont; label: string; fontFamily: string }[] = [
+  { value: 'sans', label: 'Padrão', fontFamily: 'inherit' },
+  { value: 'fleur', label: 'Caligrafia (Fleur De Leah)', fontFamily: "'Fleur De Leah', cursive" },
+  { value: 'pinyon', label: 'Caligrafia (Pinyon Script)', fontFamily: "'Pinyon Script', cursive" },
+]
 
 const EMPTY_FORM: CreateForm = {
   event_type: 'wedding',
@@ -33,6 +40,7 @@ const EMPTY_FORM: CreateForm = {
   dress_code: '',
   pix_key: '',
   color_primary: '#d2afff',
+  name_font: 'sans',
   logo: null,
   admin_name: '',
   admin_email: '',
@@ -51,6 +59,7 @@ function toFormData(form: CreateForm): FormData {
   data.set('dress_code', form.dress_code.trim())
   data.set('pix_key', form.pix_key.trim())
   data.set('color_primary', form.color_primary)
+  data.set('name_font', form.name_font)
   data.set('admin_name', form.admin_name.trim())
   data.set('admin_email', form.admin_email.trim())
   if (form.logo) {
@@ -147,6 +156,21 @@ export default function SuperEventCreate() {
             onChange={(e) => setForm((prev) => ({ ...prev, color_primary: e.target.value }))}
             className="mt-1 h-10 w-full rounded-xl border border-brand-primary-soft px-1 outline-none"
           />
+        </label>
+
+        <label className="text-sm font-medium text-[#3f3450]">
+          Fonte do nome
+          <select
+            value={form.name_font}
+            onChange={(e) => setForm((prev) => ({ ...prev, name_font: e.target.value as NameFont }))}
+            className="mt-1 w-full rounded-xl border border-brand-primary-soft px-4 py-2 outline-none focus:border-brand-primary"
+          >
+            {NAME_FONT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value} style={{ fontFamily: option.fontFamily }}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </label>
 
         <label className="text-sm font-medium text-[#3f3450]">

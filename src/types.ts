@@ -9,6 +9,8 @@ export type AdminInfo = {
 
 export type EventType = 'wedding' | 'birthday'
 
+export type NameFont = 'sans' | 'fleur' | 'pinyon'
+
 export type PublicEvent = {
   slug: string
   event_type: EventType
@@ -23,6 +25,7 @@ export type PublicEvent = {
   pix_key: string | null
   logo_url: string | null
   color_primary: string
+  name_font: NameFont
 }
 
 export type AdminEvent = PublicEvent & {

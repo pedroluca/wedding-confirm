@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api, ApiError } from '../lib/api'
 import { Checkbox } from '../components/Checkbox'
+import { InviteDetails } from '../components/InviteDetails'
 import { PageShell } from '../components/PageShell'
 import type { GuestInviteResponse } from '../types'
 
@@ -98,7 +99,8 @@ export default function GuestConfirm() {
   return (
     <PageShell>
       <div className="w-full max-w-md">
-        <p className="text-center text-xl font-medium text-[#3f3450]">{greeting}</p>
+        <InviteDetails compact />
+        <p className="mt-10 text-center text-xl font-medium text-[#3f3450]">{greeting}</p>
 
         <div className="mt-8 space-y-3">
           {data.members.map((member) => (
