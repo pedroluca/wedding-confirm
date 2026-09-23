@@ -233,6 +233,9 @@ export default function AdminGifts() {
 
   const showTemplateChoice = !loading && gifts.length === 0 && templateChoice === 'undecided'
 
+  const totalItens = gifts.length
+  const totalUnidades = gifts.reduce((total, gift) => total + gift.quantity, 0)
+
   return (
     <div>
       <h1 className="text-2xl font-semibold text-[#3f3450]">Lista de presentes</h1>
@@ -240,6 +243,12 @@ export default function AdminGifts() {
         Itens que aparecem para os convidados na página de presentes, com a quantidade que ainda
         pode ser presenteada.
       </p>
+      {!loading && totalItens > 0 && (
+        <p className="mt-2 text-sm font-medium text-brand-primary">
+          {totalItens} {totalItens === 1 ? 'item' : 'itens'} · {totalUnidades}{' '}
+          {totalUnidades === 1 ? 'unidade no total' : 'unidades no total'}
+        </p>
+      )}
 
       {loading ? (
         <p className="mt-8 text-[#8b7a9c]">Carregando...</p>

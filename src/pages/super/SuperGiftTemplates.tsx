@@ -120,6 +120,8 @@ export default function SuperGiftTemplates() {
   }
 
   const filtered = templates.filter((t) => t.event_type === tab)
+  const totalItens = filtered.length
+  const totalUnidades = filtered.reduce((total, template) => total + template.quantity, 0)
 
   return (
     <div>
@@ -128,6 +130,12 @@ export default function SuperGiftTemplates() {
         Lista pronta que o admin de cada evento pode clonar para a própria lista de presentes, em vez
         de montar do zero. Um conjunto por tipo de evento.
       </p>
+      {!loading && (
+        <p className="mt-2 text-sm font-medium text-brand-primary">
+          {totalItens} {totalItens === 1 ? 'item' : 'itens'} · {totalUnidades}{' '}
+          {totalUnidades === 1 ? 'unidade no total' : 'unidades no total'}
+        </p>
+      )}
 
       <div className="mt-4 flex gap-2">
         <button
