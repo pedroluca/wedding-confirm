@@ -95,7 +95,7 @@ export function InviteDetails({
             )}
             {isWedding && event.venue_name_secondary && (
               <div>
-                <dt className="text-xs font-semibold tracking-wide text-brand-primary uppercase">Festa</dt>
+                <dt className="text-xs font-semibold tracking-wide text-brand-primary uppercase">Recepção</dt>
                 <dd className="text-[#3f3450]">
                   <MaybeMapLink href={event.maps_url_secondary}>{event.venue_name_secondary}</MaybeMapLink>
                 </dd>
