@@ -21,6 +21,7 @@ export type PublicEvent = {
   venue_name_secondary: string | null
   address: string | null
   maps_url: string | null
+  maps_url_secondary: string | null
   dress_code: string | null
   pix_key: string | null
   logo_url: string | null

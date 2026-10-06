@@ -25,6 +25,16 @@ function formatEventDate(mysqlDateTime: string): string {
   return `${dateFormatter.format(date)} às ${timeFormatter.format(date).replace(':', 'h')}`
 }
 
+function MaybeMapLink({ href, children }: { href: string | null; children: string }) {
+  if (!href) return children
+
+  return (
+    <a href={href} target="_blank" rel="noreferrer" className="underline decoration-brand-primary underline-offset-4">
+      {children}
+    </a>
+  )
+}
+
 export function InviteDetails({
   isHome = false,
   compact = false,
@@ -75,28 +85,19 @@ export function InviteDetails({
                 <dd className="text-[#3f3450]">{event.venue_name}</dd>
               </div>
             )}
-            {isWedding && event.venue_name_secondary && (
-              <div>
-                <dt className="text-xs font-semibold tracking-wide text-brand-primary uppercase">Festa</dt>
-                <dd className="text-[#3f3450]">{event.venue_name_secondary}</dd>
-              </div>
-            )}
             {event.address && (
               <div>
                 <dt className="text-xs font-semibold tracking-wide text-brand-primary uppercase">Endereço</dt>
                 <dd className="text-[#3f3450]">
-                  {event.maps_url ? (
-                    <a
-                      href={event.maps_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="underline decoration-brand-primary underline-offset-4"
-                    >
-                      {event.address}
-                    </a>
-                  ) : (
-                    event.address
-                  )}
+                  <MaybeMapLink href={event.maps_url}>{event.address}</MaybeMapLink>
+                </dd>
+              </div>
+            )}
+            {isWedding && event.venue_name_secondary && (
+              <div>
+                <dt className="text-xs font-semibold tracking-wide text-brand-primary uppercase">Festa</dt>
+                <dd className="text-[#3f3450]">
+                  <MaybeMapLink href={event.maps_url_secondary}>{event.venue_name_secondary}</MaybeMapLink>
                 </dd>
               </div>
             )}
