@@ -1,78 +1,235 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { Check, CircleAlert, Copy, CornerDownRight, Pencil, Plus, Search, Trash2, Users, X } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAdminAuth } from '../../lib/adminAuthContext'
 import { useAdminEvent } from '../../lib/adminEventContext'
 import { StatusBadge } from '../../components/StatusBadge'
-import type { AdminGuest } from '../../types'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
+import type { AdminDependent, AdminGuest, GuestStatus } from '../../types'
+
+// Mesmo limite do backend (require_string(..., 150) em handlers/admin_guests.php).
+const NAME_MAX_LENGTH = 150
+
+/** Ignora acentos e caixa, para busca e detecção de nome repetido. */
+const normalize = (value: string) =>
+  value.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
+
+// titularId === null quando o alvo é o próprio titular.
+type Target = { id: number; titularId: number | null }
+
+type PendingDelete = Target & {
+  name: string
+  status: GuestStatus
+  titularName: string | null
+  dependentNames: string[]
+}
+
+type Editing = Target & { value: string }
+
+function NameEditForm({
+  value,
+  saving,
+  onChange,
+  onSubmit,
+  onCancel,
+}: {
+  value: string
+  saving: boolean
+  onChange: (value: string) => void
+  onSubmit: (e: FormEvent) => void
+  onCancel: () => void
+}) {
+  return (
+    <form onSubmit={onSubmit} className="flex min-w-0 flex-1 items-center gap-1">
+      <input
+        autoFocus
+        value={value}
+        maxLength={NAME_MAX_LENGTH}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={(e) => e.target.select()}
+        onKeyDown={(e) => e.key === 'Escape' && onCancel()}
+        aria-label="Nome"
+        className="min-w-0 flex-1 rounded-lg border border-brand-primary px-2 py-1 text-[#3f3450] outline-none"
+      />
+      <button
+        type="submit"
+        disabled={saving}
+        aria-label="Salvar nome"
+        title="Salvar"
+        className="cursor-pointer rounded-full p-1.5 text-emerald-600 hover:bg-emerald-50 disabled:opacity-60"
+      >
+        <Check size={16} />
+      </button>
+      <button
+        type="button"
+        onClick={onCancel}
+        aria-label="Cancelar edição"
+        title="Cancelar"
+        className="cursor-pointer rounded-full p-1.5 text-[#8b7a9c] hover:bg-brand-primary-soft"
+      >
+        <X size={16} />
+      </button>
+    </form>
+  )
+}
 
 export default function AdminGuests() {
   const { session } = useAdminAuth()
   const event = useAdminEvent()
   const token = session?.token ?? null
+  // Sempre do mais recente para o mais antigo, para o convite recém-criado
+  // aparecer logo abaixo do formulário.
   const [guests, setGuests] = useState<AdminGuest[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState(false)
+  const [search, setSearch] = useState('')
+
   const [newName, setNewName] = useState('')
   const [creating, setCreating] = useState(false)
-  const [dependentDrafts, setDependentDrafts] = useState<Record<number, string>>({})
+  const newNameRef = useRef<HTMLInputElement>(null)
+  const [highlightId, setHighlightId] = useState<number | null>(null)
+
+  const [dependentFormFor, setDependentFormFor] = useState<number | null>(null)
+  const [dependentDraft, setDependentDraft] = useState('')
+  const [addingDependent, setAddingDependent] = useState(false)
+
+  const [editing, setEditing] = useState<Editing | null>(null)
+  const [savingEdit, setSavingEdit] = useState(false)
+
+  const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null)
+  const [deleting, setDeleting] = useState(false)
+
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null)
-  const [reloadKey, setReloadKey] = useState(0)
-  const reload = () => setReloadKey((key) => key + 1)
+  const [toast, setToast] = useState<string | null>(null)
+  const toastTimer = useRef<number | undefined>(undefined)
 
   useEffect(() => {
-    const load = () => {
-      setLoading(true)
-      api
-        .get<{ guests: AdminGuest[] }>('/admin/guests', token)
-        .then((res) => setGuests(res.guests))
-        .catch(() => setError('Não foi possível carregar a lista de convidados.'))
-        .finally(() => setLoading(false))
-    }
-    load()
-  }, [token, reloadKey])
+    api
+      .get<{ guests: AdminGuest[] }>('/admin/guests', token)
+      .then((res) => setGuests([...res.guests].sort((a, b) => b.id - a.id)))
+      .catch(() => setLoadError(true))
+      .finally(() => setLoading(false))
+  }, [token])
+
+  const showError = (message: string) => {
+    window.clearTimeout(toastTimer.current)
+    setToast(message)
+    toastTimer.current = window.setTimeout(() => setToast(null), 4000)
+  }
 
   const handleCreate = async (e: FormEvent) => {
     e.preventDefault()
-    if (!newName.trim()) return
+    const name = newName.trim()
+    if (!name || creating) return
     setCreating(true)
-    setError(null)
     try {
-      await api.post('/admin/guests', { name: newName.trim() }, token)
+      const res = await api.post<{ guest: Omit<AdminGuest, 'confirmed_at' | 'created_at'> }>(
+        '/admin/guests',
+        { name },
+        token
+      )
+      const guest: AdminGuest = { ...res.guest, confirmed_at: null, created_at: new Date().toISOString() }
+      setGuests((prev) => [guest, ...prev])
       setNewName('')
-      reload()
+      setSearch('')
+      setHighlightId(guest.id)
+      setTimeout(() => setHighlightId((current) => (current === guest.id ? null : current)), 2500)
     } catch {
-      setError('Não foi possível cadastrar o convidado.')
+      showError('Não foi possível cadastrar o convidado.')
     } finally {
       setCreating(false)
+      newNameRef.current?.focus()
     }
   }
 
-  const handleAddDependent = async (titularId: number) => {
-    const name = (dependentDrafts[titularId] ?? '').trim()
-    if (!name) return
+  const openDependentForm = (titularId: number) => {
+    setDependentFormFor(titularId)
+    setDependentDraft('')
+  }
+
+  const closeDependentForm = () => {
+    setDependentFormFor(null)
+    setDependentDraft('')
+  }
+
+  const handleAddDependent = async (e: FormEvent, titularId: number) => {
+    e.preventDefault()
+    const name = dependentDraft.trim()
+    if (!name || addingDependent) return
+    setAddingDependent(true)
     try {
-      await api.post(`/admin/guests/${titularId}/dependents`, { name }, token)
-      setDependentDrafts((prev) => ({ ...prev, [titularId]: '' }))
-      reload()
+      const res = await api.post<{ dependent: Omit<AdminDependent, 'confirmed_at' | 'created_at'> }>(
+        `/admin/guests/${titularId}/dependents`,
+        { name },
+        token
+      )
+      const dependent: AdminDependent = { ...res.dependent, confirmed_at: null, created_at: new Date().toISOString() }
+      setGuests((prev) =>
+        prev.map((guest) =>
+          guest.id === titularId ? { ...guest, dependents: [...guest.dependents, dependent] } : guest
+        )
+      )
+      // O campo continua aberto e focado para emendar o próximo relacionado.
+      setDependentDraft('')
     } catch {
-      setError('Não foi possível adicionar o relacionado.')
+      showError('Não foi possível adicionar o relacionado.')
+    } finally {
+      setAddingDependent(false)
     }
   }
 
-  const handleDelete = async (id: number) => {
-    if (!window.confirm('Remover este convidado? Isso também remove os relacionados dele.')) return
+  const handleRename = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!editing || savingEdit) return
+    const { id, titularId } = editing
+    const name = editing.value.trim()
+    if (!name) return
+    setSavingEdit(true)
+    try {
+      // O slug do titular não muda no backend, então o link já enviado continua valendo.
+      await api.put(`/admin/guests/${id}`, { name }, token)
+      setGuests((prev) =>
+        prev.map((guest) => {
+          if (titularId === null) return guest.id === id ? { ...guest, name } : guest
+          if (guest.id !== titularId) return guest
+          return { ...guest, dependents: guest.dependents.map((dep) => (dep.id === id ? { ...dep, name } : dep)) }
+        })
+      )
+      setEditing(null)
+    } catch {
+      showError('Não foi possível salvar o novo nome.')
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!pendingDelete) return
+    const { id, titularId } = pendingDelete
+    setDeleting(true)
     try {
       await api.del(`/admin/guests/${id}`, token)
-      reload()
+      setGuests((prev) =>
+        titularId === null
+          ? prev.filter((guest) => guest.id !== id)
+          : prev.map((guest) =>
+              guest.id === titularId
+                ? { ...guest, dependents: guest.dependents.filter((dep) => dep.id !== id) }
+                : guest
+            )
+      )
     } catch {
-      setError('Não foi possível remover o convidado.')
+      showError('Não foi possível remover o convidado.')
+    } finally {
+      setDeleting(false)
+      setPendingDelete(null)
     }
   }
 
-  const guestLink = (slug: string) => `${window.location.origin}/${event.slug}/${slug}`
+  const guestPath = (slug: string) => `${event.slug}/${slug}`
 
   const copyLink = (slug: string) => {
-    navigator.clipboard.writeText(guestLink(slug)).then(() => {
+    navigator.clipboard.writeText(`${window.location.origin}/${guestPath(slug)}`).then(() => {
       setCopiedSlug(slug)
       setTimeout(() => setCopiedSlug((current) => (current === slug ? null : current)), 2000)
     })
@@ -80,6 +237,28 @@ export default function AdminGuests() {
 
   const totalTitulares = guests.length
   const totalPessoas = guests.reduce((total, guest) => total + 1 + guest.dependents.length, 0)
+
+  const query = normalize(search)
+  const visibleGuests = query
+    ? guests.filter(
+        (guest) =>
+          normalize(guest.name).includes(query) || guest.dependents.some((dep) => normalize(dep.name).includes(query))
+      )
+    : guests
+
+  // Aviso (não bloqueia) para evitar cadastrar a mesma pessoa duas vezes.
+  const newNameKey = normalize(newName)
+  const duplicateOf = newNameKey
+    ? guests.find(
+        (guest) =>
+          normalize(guest.name) === newNameKey || guest.dependents.some((dep) => normalize(dep.name) === newNameKey)
+      )
+    : undefined
+
+  const editButtonClass =
+    'cursor-pointer shrink-0 rounded-full p-1.5 text-[#8b7a9c] transition hover:bg-brand-primary-soft hover:text-brand-primary focus-visible:opacity-100 pointer-fine:opacity-0'
+  const deleteButtonClass =
+    'cursor-pointer shrink-0 rounded-full p-2 text-[#8b7a9c] transition hover:bg-rose-50 hover:text-rose-600'
 
   return (
     <div>
@@ -92,92 +271,323 @@ export default function AdminGuests() {
         {totalPessoas === 1 ? 'pessoa no total' : 'pessoas no total'}
       </p>
 
-      <form onSubmit={handleCreate} className="mt-6 flex flex-wrap gap-3">
-        <input
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-          placeholder="Nome do convidado"
-          className="min-w-50 flex-1 rounded-xl border border-brand-primary-soft px-4 py-2 outline-none focus:border-brand-primary"
-        />
-        <button
-          type="submit"
-          disabled={creating}
-          className="cursor-pointer rounded-full bg-brand-primary px-6 py-2 font-semibold text-white transition hover:bg-brand-primary-hover disabled:opacity-60"
-        >
-          Adicionar convidado
-        </button>
+      <form
+        onSubmit={handleCreate}
+        className="mt-6 rounded-2xl border border-brand-primary-soft bg-brand-primary-soft/40 p-4 sm:p-5"
+      >
+        <label htmlFor="new-guest" className="text-sm font-medium text-[#3f3450]">
+          Novo convite
+        </label>
+        <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+          <input
+            id="new-guest"
+            ref={newNameRef}
+            value={newName}
+            maxLength={NAME_MAX_LENGTH}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder="Nome do convidado titular"
+            autoComplete="off"
+            className="min-w-0 flex-1 rounded-xl border border-brand-primary-soft bg-white px-4 py-2.5 outline-none focus:border-brand-primary"
+          />
+          <button
+            type="submit"
+            disabled={creating || !newName.trim()}
+            className="cursor-pointer inline-flex items-center justify-center gap-2 rounded-full bg-brand-primary px-6 py-2.5 font-semibold text-white transition hover:bg-brand-primary-hover disabled:cursor-default disabled:opacity-60"
+          >
+            <Plus size={18} />
+            {creating ? 'Adicionando...' : 'Adicionar'}
+          </button>
+        </div>
+        {duplicateOf ? (
+          <p className="mt-2 text-xs text-amber-700">
+            Já existe alguém com esse nome na lista
+            {normalize(duplicateOf.name) === newNameKey ? '' : ` (relacionado de ${duplicateOf.name})`}.
+          </p>
+        ) : (
+          <p className="mt-2 text-xs text-[#8b7a9c]">
+            Os convites mais recentes aparecem no topo da lista.
+          </p>
+        )}
       </form>
-
-      {error && <p className="mt-4 text-sm text-rose-600">{error}</p>}
 
       {loading ? (
         <p className="mt-8 text-[#8b7a9c]">Carregando...</p>
+      ) : loadError ? (
+        <p className="mt-8 text-sm text-rose-600">Não foi possível carregar a lista de convidados.</p>
+      ) : guests.length === 0 ? (
+        <div className="mt-8 flex flex-col items-center rounded-2xl border border-dashed border-brand-primary-soft px-6 py-12 text-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-primary-soft text-brand-primary">
+            <Users size={22} />
+          </div>
+          <p className="mt-4 font-medium text-[#3f3450]">Nenhum convidado cadastrado ainda</p>
+          <p className="mt-1 max-w-sm text-sm text-[#8b7a9c]">
+            Adicione o nome do titular acima. Depois é só incluir os relacionados dele no próprio cartão.
+          </p>
+        </div>
       ) : (
-        <ul className="mt-8 space-y-4">
-          {guests.map((guest) => (
-            <li key={guest.id} className="rounded-2xl border border-brand-primary-soft p-5">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="font-medium text-[#3f3450]">{guest.name}</p>
-                  <button
-                    type="button"
-                    onClick={() => copyLink(guest.slug)}
-                    className="cursor-copy mt-1 text-sm text-brand-primary underline underline-offset-4"
-                  >
-                    {copiedSlug === guest.slug ? 'Link copiado!' : guestLink(guest.slug)}
-                  </button>
-                </div>
-                <div className="flex items-center gap-3">
-                  <StatusBadge status={guest.status} />
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(guest.id)}
-                    className="cursor-pointer text-sm text-rose-600 underline underline-offset-4"
-                  >
-                    Remover
-                  </button>
-                </div>
-              </div>
+        <>
+          <div className="relative mt-8">
+            <Search
+              size={18}
+              className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-[#8b7a9c]"
+            />
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar convidado ou relacionado"
+              aria-label="Buscar convidado ou relacionado"
+              className="w-full rounded-xl border border-brand-primary-soft py-2.5 pr-4 pl-10 text-sm outline-none focus:border-brand-primary"
+            />
+          </div>
 
-              {guest.dependents.length > 0 && (
-                <ul className="mt-4 space-y-2 border-t border-brand-primary-soft pt-4">
-                  {guest.dependents.map((dep) => (
-                    <li key={dep.id} className="flex items-center justify-between gap-3 pl-4">
-                      <span className="text-[#3f3450]">{dep.name}</span>
-                      <div className="flex items-center gap-3">
-                        <StatusBadge status={dep.status} />
+          {visibleGuests.length === 0 ? (
+            <p className="mt-6 text-center text-sm text-[#8b7a9c]">
+              Ninguém encontrado para "{search.trim()}".{' '}
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="cursor-pointer font-medium text-brand-primary underline underline-offset-4"
+              >
+                Limpar busca
+              </button>
+            </p>
+          ) : (
+            <ul className="mt-4 space-y-3">
+              {visibleGuests.map((guest) => {
+                const isHighlighted = highlightId === guest.id
+                const isEditingTitular = editing?.id === guest.id
+
+                return (
+                  <li
+                    key={guest.id}
+                    className={`rounded-2xl border bg-white p-4 transition-[border-color,box-shadow] duration-700 sm:p-5 ${
+                      isHighlighted
+                        ? 'border-brand-primary ring-4 ring-brand-primary-soft motion-safe:animate-pop-in'
+                        : 'border-brand-primary-soft'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        {isEditingTitular ? (
+                          <NameEditForm
+                            value={editing.value}
+                            saving={savingEdit}
+                            onChange={(value) => setEditing({ ...editing, value })}
+                            onSubmit={handleRename}
+                            onCancel={() => setEditing(null)}
+                          />
+                        ) : (
+                          <div className="group/name flex items-center gap-1">
+                            <p className="min-w-0 font-semibold wrap-break-word text-[#3f3450]">{guest.name}</p>
+                            <button
+                              type="button"
+                              onClick={() => setEditing({ id: guest.id, titularId: null, value: guest.name })}
+                              aria-label={`Renomear ${guest.name}`}
+                              title="Renomear"
+                              className={`${editButtonClass} group-hover/name:opacity-100`}
+                            >
+                              <Pencil size={14} />
+                            </button>
+                          </div>
+                        )}
                         <button
                           type="button"
-                          onClick={() => handleDelete(dep.id)}
-                          className="cursor-pointer text-sm text-rose-600 underline underline-offset-4"
+                          onClick={() => copyLink(guest.slug)}
+                          title="Copiar link do convite"
+                          className="cursor-copy mt-0.5 inline-flex max-w-full items-center gap-1.5 text-sm text-brand-primary hover:underline hover:underline-offset-4"
                         >
-                          Remover
+                          {copiedSlug === guest.slug ? (
+                            <>
+                              <Check size={14} className="shrink-0" />
+                              <span>Link copiado!</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy size={14} className="shrink-0" />
+                              <span className="truncate">
+                                {window.location.host}/{guestPath(guest.slug)}
+                              </span>
+                            </>
+                          )}
                         </button>
                       </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
 
-              <div className="mt-4 flex gap-3 pl-4">
-                <input
-                  value={dependentDrafts[guest.id] ?? ''}
-                  onChange={(e) => setDependentDrafts((prev) => ({ ...prev, [guest.id]: e.target.value }))}
-                  placeholder="Nome do relacionado"
-                  className="flex-1 rounded-xl border border-brand-primary-soft px-3 py-1.5 text-sm outline-none focus:border-brand-primary"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleAddDependent(guest.id)}
-                  className="cursor-pointer rounded-full border border-brand-primary-soft px-4 py-1.5 text-sm font-medium text-brand-primary hover:bg-brand-primary-soft"
-                >
-                  Adicionar
-                </button>
-              </div>
-            </li>
-          ))}
-          {guests.length === 0 && <p className="text-[#8b7a9c]">Nenhum convidado cadastrado ainda.</p>}
-        </ul>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <StatusBadge status={guest.status} />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPendingDelete({
+                              id: guest.id,
+                              titularId: null,
+                              name: guest.name,
+                              status: guest.status,
+                              titularName: null,
+                              dependentNames: guest.dependents.map((dep) => dep.name),
+                            })
+                          }
+                          aria-label={`Remover ${guest.name}`}
+                          title="Remover"
+                          className={deleteButtonClass}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {guest.dependents.length > 0 && (
+                      <ul className="mt-3 space-y-1 border-t border-brand-primary-soft pt-3">
+                        {guest.dependents.map((dep) => (
+                          <li key={dep.id} className="group/dep flex items-center justify-between gap-3">
+                            <div className="flex min-w-0 flex-1 items-center gap-2">
+                              <CornerDownRight size={16} className="shrink-0 text-[#c4b6d1]" />
+                              {editing?.id === dep.id ? (
+                                <NameEditForm
+                                  value={editing.value}
+                                  saving={savingEdit}
+                                  onChange={(value) => setEditing({ ...editing, value })}
+                                  onSubmit={handleRename}
+                                  onCancel={() => setEditing(null)}
+                                />
+                              ) : (
+                                <>
+                                  <span className="min-w-0 wrap-break-word text-[#3f3450]">{dep.name}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditing({ id: dep.id, titularId: guest.id, value: dep.name })}
+                                    aria-label={`Renomear ${dep.name}`}
+                                    title="Renomear"
+                                    className={`${editButtonClass} -ml-1 group-hover/dep:opacity-100`}
+                                  >
+                                    <Pencil size={14} />
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                            <div className="flex shrink-0 items-center gap-1">
+                              <StatusBadge status={dep.status} />
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setPendingDelete({
+                                    id: dep.id,
+                                    titularId: guest.id,
+                                    name: dep.name,
+                                    status: dep.status,
+                                    titularName: guest.name,
+                                    dependentNames: [],
+                                  })
+                                }
+                                aria-label={`Remover ${dep.name}`}
+                                title="Remover"
+                                className={deleteButtonClass}
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+
+                    {dependentFormFor === guest.id ? (
+                      <form onSubmit={(e) => handleAddDependent(e, guest.id)} className="mt-3 flex gap-2">
+                        <input
+                          autoFocus
+                          value={dependentDraft}
+                          maxLength={NAME_MAX_LENGTH}
+                          onChange={(e) => setDependentDraft(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Escape' && closeDependentForm()}
+                          onBlur={() => !dependentDraft.trim() && closeDependentForm()}
+                          placeholder={`Relacionado de ${guest.name.split(' ')[0]}`}
+                          aria-label={`Nome do relacionado de ${guest.name}`}
+                          autoComplete="off"
+                          className="min-w-0 flex-1 rounded-xl border border-brand-primary-soft px-3 py-2 text-sm outline-none focus:border-brand-primary"
+                        />
+                        <button
+                          type="submit"
+                          disabled={addingDependent || !dependentDraft.trim()}
+                          className="cursor-pointer rounded-full bg-brand-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-primary-hover disabled:cursor-default disabled:opacity-60"
+                        >
+                          {addingDependent ? 'Adicionando...' : 'Adicionar'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={closeDependentForm}
+                          aria-label="Fechar"
+                          title="Fechar"
+                          className="cursor-pointer shrink-0 rounded-full p-2 text-[#8b7a9c] hover:bg-brand-primary-soft"
+                        >
+                          <X size={16} />
+                        </button>
+                      </form>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => openDependentForm(guest.id)}
+                        className="cursor-pointer mt-2 -ml-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium text-brand-primary transition hover:bg-brand-primary-soft"
+                      >
+                        <Plus size={16} />
+                        Adicionar relacionado
+                      </button>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </>
+      )}
+
+      {pendingDelete && (
+        <ConfirmDialog
+          title={`Remover ${pendingDelete.name}?`}
+          loading={deleting}
+          onConfirm={handleDelete}
+          onCancel={() => setPendingDelete(null)}
+          description={
+            <>
+              {pendingDelete.titularId === null ? (
+                <p>O link de confirmação deste convite deixa de funcionar.</p>
+              ) : (
+                <p>
+                  {pendingDelete.name} deixa de aparecer no convite de {pendingDelete.titularName}.
+                </p>
+              )}
+              {pendingDelete.dependentNames.length > 0 && (
+                <p>
+                  {pendingDelete.dependentNames.length === 1 ? 'O relacionado' : 'Os relacionados'}{' '}
+                  <span className="font-medium text-[#3f3450]">{pendingDelete.dependentNames.join(', ')}</span>{' '}
+                  {pendingDelete.dependentNames.length === 1 ? 'também será removido.' : 'também serão removidos.'}
+                </p>
+              )}
+              {pendingDelete.status !== 'pendente' && (
+                <p className="font-medium text-amber-700">
+                  Essa pessoa já {pendingDelete.status === 'confirmado' ? 'confirmou presença' : 'recusou o convite'}.
+                </p>
+              )}
+            </>
+          }
+        />
+      )}
+
+      {toast && (
+        <div
+          role="alert"
+          className="fixed inset-x-4 bottom-6 z-60 mx-auto flex max-w-sm items-center gap-3 rounded-2xl bg-[#3f3450] px-4 py-3 text-sm text-white shadow-xl motion-safe:animate-pop-in"
+        >
+          <CircleAlert size={18} className="shrink-0 text-rose-300" />
+          <span className="flex-1">{toast}</span>
+          <button
+            type="button"
+            onClick={() => setToast(null)}
+            aria-label="Fechar aviso"
+            className="cursor-pointer rounded-full p-1 text-white/70 hover:text-white"
+          >
+            <X size={16} />
+          </button>
+        </div>
       )}
     </div>
   )

@@ -44,6 +44,31 @@
   --font-display: 'Poppins', system-ui, sans-serif;
   --font-fleur: 'Fleur De Leah', cursive;
   --font-pinyon: 'Pinyon Script', cursive;
+
+  /* Entradas de modais, toasts e itens recém-criados (classes animate-fade-in
+     e animate-pop-in — usar com motion-safe: para respeitar reduced motion). */
+  --animate-fade-in: fade-in 150ms ease-out;
+  --animate-pop-in: pop-in 200ms ease-out;
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes pop-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
 }
 
 :root {
