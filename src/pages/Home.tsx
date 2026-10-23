@@ -1,10 +1,8 @@
 import { CheckCircle2, Gift, Heart, MessageCircle, Palette, PartyPopper } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { WHATSAPP_URL } from '../lib/contact'
 import { Copyright } from '../components/DevCredit'
 import { PageShell } from '../components/PageShell'
-
-// TODO: trocar pelo número real (com DDI+DDD, só dígitos) antes de publicar.
-const WHATSAPP_URL = 'https://wa.me/5577936181281'
 
 const STEPS = [
   { title: 'Fale com a gente', description: 'Fale com a gente pelo WhatsApp e ativamos seu evento.' },

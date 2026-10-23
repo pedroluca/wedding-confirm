@@ -6,7 +6,9 @@ import { useAdminAuth } from '../../lib/adminAuthContext'
 import { accessStatus } from '../../lib/eventAccess'
 import { parseMysqlDate } from '../../lib/eventFormat'
 import { EVENT_TYPE_OPTIONS, EVENT_TYPES, formatHostNames } from '../../lib/eventTypes'
+import { guestBand, type GuestBand } from '../../lib/plans'
 import { AccessBadge } from '../../components/panel/AccessBadge'
+import { GuestBandBadge } from '../../components/panel/GuestBand'
 import { EmptyState, Meter, PageHeader, panelCardClass, primaryButtonClass, StatCard } from '../../components/panel/ui'
 import type { SuperEvent } from '../../types'
 
@@ -119,6 +121,12 @@ export default function SuperDashboard() {
     .sort((a, b) => a.date.getTime() - b.date.getTime())
     .slice(0, LIST_SIZE)
 
+  // Na margem de tolerância ou no teto: o cliente pode precisar mudar de faixa.
+  const overBand = events
+    .map((event) => ({ event, band: guestBand(event.stats.people, event) }))
+    .filter((item): item is { event: SuperEvent; band: GuestBand } => item.band !== null && item.band.state !== 'ok')
+    .sort((a, b) => b.band.people / b.band.limit - a.band.people / a.band.limit)
+
   const recent = [...events]
     .sort((a, b) => (parseMysqlDate(b.created_at)?.getTime() ?? 0) - (parseMysqlDate(a.created_at)?.getTime() ?? 0))
     .slice(0, LIST_SIZE)
@@ -161,6 +169,28 @@ export default function SuperDashboard() {
       </div>
 
       <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-5">
+        {overBand.length > 0 && (
+          <div className="lg:col-span-5">
+            <DashboardCard title="Acima da faixa de convidados">
+              <ul className="divide-y divide-[#f3eef5]">
+                {overBand.map(({ event, band }) => (
+                  <li key={event.id}>
+                    <EventLink event={event}>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-balance break-words text-[#3f3450]">{formatHostNames(event)}</p>
+                        <p className="text-xs text-[#8b7a9c]">
+                          {EVENT_TYPES[event.event_type].label} · {band.people} de {band.limit} pessoas
+                        </p>
+                      </div>
+                      <GuestBandBadge band={band} />
+                    </EventLink>
+                  </li>
+                ))}
+              </ul>
+            </DashboardCard>
+          </div>
+        )}
+
         <div className="lg:col-span-3">
           <DashboardCard
             title="Próximos eventos"

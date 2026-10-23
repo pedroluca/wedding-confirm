@@ -6,8 +6,9 @@ import { useAdminAuth } from '../../lib/adminAuthContext'
 import { accessStatus, type AccessState } from '../../lib/eventAccess'
 import { parseMysqlDate } from '../../lib/eventFormat'
 import { EVENT_TYPE_OPTIONS, EVENT_TYPES, formatHostNames } from '../../lib/eventTypes'
-import { PLAN_OPTIONS } from '../../lib/plans'
+import { guestBand, PLAN_OPTIONS } from '../../lib/plans'
 import { AccessBadge } from '../../components/panel/AccessBadge'
+import { GuestBandBadge } from '../../components/panel/GuestBand'
 import { PlanBadge } from '../../components/panel/PlanBadge'
 import { EmptyState, Meter, PageHeader, panelCardClass, primaryButtonClass } from '../../components/panel/ui'
 import type { EventPlan, EventType, SuperEvent } from '../../types'
@@ -168,6 +169,7 @@ export default function SuperEventList() {
                       <p className="flex flex-wrap items-center gap-x-2 gap-y-1 font-medium text-balance break-words text-[#3f3450]">
                         {formatHostNames(event)}
                         <PlanBadge plan={event.plan} />
+                        <GuestBandBadge band={guestBand(people, event)} />
                       </p>
                       <p className="text-xs break-words text-[#8b7a9c]">
                         {EVENT_TYPES[event.event_type].label}

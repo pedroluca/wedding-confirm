@@ -25,10 +25,11 @@ import { useAdminAuth, type Session } from '../../lib/adminAuthContext'
 import { formatEventDate, NAME_FONT_OPTIONS } from '../../lib/eventFormat'
 import { EVENT_TYPE_OPTIONS, EVENT_TYPES, eventTypeOptionLabel, formatHostNames } from '../../lib/eventTypes'
 import { INVITE_STYLE_OPTIONS, resolveInviteStyle } from '../../lib/inviteStyles'
-import { PLAN_LABELS, suggestedAccessExpiry } from '../../lib/plans'
+import { GUEST_TOLERANCE_PERCENT, guestBand, guestCap, PLAN_LABELS, suggestedAccessExpiry } from '../../lib/plans'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { InviteStylePicker } from '../../components/InviteStylePicker'
 import { AccessBadge } from '../../components/panel/AccessBadge'
+import { GuestBandBadge } from '../../components/panel/GuestBand'
 import { PlanBadge } from '../../components/panel/PlanBadge'
 import { PlanPicker } from '../../components/panel/PlanPicker'
 import {
@@ -245,6 +246,8 @@ export default function SuperEventDetail() {
   const unlimited = form.plan === 'unlimited'
   const giftsOn = unlimited || form.gifts_enabled
   const suggestedAccess = suggestedAccessExpiry(form.event_date, form.plan)
+  const band = guestBand(event.stats.people, event)
+  const formGuestLimit = Number(form.guest_limit)
 
   const previewEvent: SuperEvent = {
     ...event,
@@ -322,6 +325,7 @@ export default function SuperEventDetail() {
               {event.subtitle && <span>{event.subtitle} ·</span>}
               <span>/{event.slug}</span>
               <PlanBadge plan={event.plan} />
+              <GuestBandBadge band={band} />
               <AccessBadge expiresAt={event.access_expires_at} />
             </span>
           }
@@ -437,9 +441,12 @@ export default function SuperEventDetail() {
                 <dl className="mt-2 divide-y divide-[#f3eef5]">
                   <InfoRow label="Plano">{PLAN_LABELS[event.plan]}</InfoRow>
                   <InfoRow label="Lista de presentes">{event.gifts_enabled ? 'Ligada' : 'Desligada'}</InfoRow>
-                  {event.plan !== 'unlimited' && event.contract.guest_limit !== null && (
+                  {band && (
                     <InfoRow label="Faixa de convidados">
-                      {event.stats.people} de {event.contract.guest_limit} pessoas
+                      <span className="inline-flex flex-wrap items-center justify-end gap-2">
+                        {band.people} de {band.limit} pessoas
+                        <GuestBandBadge band={band} />
+                      </span>
                     </InfoRow>
                   )}
                   <InfoRow label="Acesso ao painel">
@@ -727,7 +734,10 @@ export default function SuperEventDetail() {
                 />
                 <span className={hintClass}>
                   Hoje: {event.stats.people} {event.stats.people === 1 ? 'pessoa' : 'pessoas'}, contando titulares e
-                  relacionados. Em branco = sem limite.
+                  relacionados.{' '}
+                  {!unlimited && Number.isInteger(formGuestLimit) && formGuestLimit > 0
+                    ? `Com a margem de ${GUEST_TOLERANCE_PERCENT}%, o cadastro trava em ${guestCap(formGuestLimit)}.`
+                    : 'Em branco = sem limite.'}
                 </span>
               </label>
               <label className={labelClass}>

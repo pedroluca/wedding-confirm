@@ -57,9 +57,29 @@ export function StatCard({
   )
 }
 
+export type MeterTone = 'brand' | 'warning' | 'danger'
+
+// [trilho, preenchimento]
+const METER_TONES: Record<MeterTone, [string, string]> = {
+  brand: ['bg-brand-primary-soft', 'bg-brand-primary'],
+  warning: ['bg-amber-100', 'bg-amber-500'],
+  danger: ['bg-rose-100', 'bg-rose-500'],
+}
+
 /** Barra de progresso: trilho num tom claro da mesma cor do preenchimento. */
-export function Meter({ value, max, label }: { value: number; max: number; label: string }) {
+export function Meter({
+  value,
+  max,
+  label,
+  tone = 'brand',
+}: {
+  value: number
+  max: number
+  label: string
+  tone?: MeterTone
+}) {
   const percent = max > 0 ? Math.min(100, (value / max) * 100) : 0
+  const [track, fill] = METER_TONES[tone]
 
   return (
     <div
@@ -69,9 +89,9 @@ export function Meter({ value, max, label }: { value: number; max: number; label
       aria-valuemax={max}
       aria-valuenow={value}
       title={label}
-      className="h-1.5 w-full overflow-hidden rounded-full bg-brand-primary-soft"
+      className={`h-1.5 w-full overflow-hidden rounded-full ${track}`}
     >
-      <div className="h-full rounded-full bg-brand-primary" style={{ width: `${percent}%` }} />
+      <div className={`h-full rounded-full ${fill}`} style={{ width: `${percent}%` }} />
     </div>
   )
 }

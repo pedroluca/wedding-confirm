@@ -1,4 +1,4 @@
-import type { EventPlan, PublicEvent } from '../types'
+import type { AdminEvent, EventPlan, PublicEvent } from '../types'
 
 /**
  * Lista de presentes e Pix no ar (a API já considera o plano). Ligada a
@@ -33,6 +33,39 @@ export const PLAN_LABELS: Record<EventPlan, string> = {
   standard: 'Padrão',
   premium: 'Premium',
   unlimited: 'Ilimitado',
+}
+
+/**
+ * Margem acima da faixa de convidados antes de travar o cadastro. Mesmo
+ * valor e cálculo do backend (config limits.guest_tolerance_percent e
+ * guest_cap em src/Plans.php). O teto de um evento salvo já vem da API
+ * (guest_cap); isto serve pra prévia enquanto o super-admin edita a faixa.
+ */
+export const GUEST_TOLERANCE_PERCENT = 20
+
+export function guestCap(limit: number): number {
+  return limit + Math.ceil((limit * GUEST_TOLERANCE_PERCENT) / 100)
+}
+
+/** Dentro da faixa, na margem de tolerância (só aviso) ou no teto (cadastro travado). */
+export type GuestBandState = 'ok' | 'tolerance' | 'full'
+
+export type GuestBand = {
+  state: GuestBandState
+  people: number
+  limit: number
+  cap: number
+  /** Quantas pessoas ainda cabem antes de travar. */
+  remaining: number
+}
+
+/** Situação da faixa de convidados do evento. null = sem limite. */
+export function guestBand(people: number, event: Pick<AdminEvent, 'guest_limit' | 'guest_cap'>): GuestBand | null {
+  const { guest_limit: limit, guest_cap: cap } = event
+  if (limit == null || cap == null) return null
+
+  const state: GuestBandState = people >= cap ? 'full' : people > limit ? 'tolerance' : 'ok'
+  return { state, people, limit, cap, remaining: Math.max(0, cap - people) }
 }
 
 const pad = (value: number) => String(value).padStart(2, '0')

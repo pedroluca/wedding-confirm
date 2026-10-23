@@ -54,6 +54,12 @@ export type PublicEvent = {
 
 export type AdminEvent = PublicEvent & {
   plan: EventPlan
+  /**
+   * Faixa de pessoas contratada e o teto (faixa + margem de tolerância), já
+   * considerando o plano. No teto o cadastro trava. null = sem limite.
+   */
+  guest_limit: number | null
+  guest_cap: number | null
   access_expires_at: string | null
   /** Modelo da mensagem de envio do convite ({primeiro_nome}, {link}...). null = texto padrão. */
   share_message: string | null
