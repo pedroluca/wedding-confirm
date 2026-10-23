@@ -19,6 +19,9 @@ type EventTypeProfile = {
   venueLabels: [primary: string, secondary: string]
   venuePlaceholders: [primary: string, secondary: string]
   giftMessageLabel: string
+  /** Fim de "Tenho/Temos a alegria de convidar você para ...", com um ou dois anfitriões. */
+  inviteOccasion: [oneHost: string, twoHosts: string]
+  inviteMessagePlaceholder: string
 }
 
 export const EVENT_TYPES: Record<EventType, EventTypeProfile> = {
@@ -30,6 +33,9 @@ export const EVENT_TYPES: Record<EventType, EventTypeProfile> = {
     venueLabels: ['Cerimônia', 'Recepção'],
     venuePlaceholders: ['Ex: Paróquia São José', 'Ex: Espaço Villa Jardim'],
     giftMessageLabel: 'Mensagem para os noivos (opcional)',
+    inviteOccasion: ['celebrar o nosso casamento', 'celebrar o nosso casamento'],
+    inviteMessagePlaceholder:
+      'Ex: Com a bênção de Deus e de nossas famílias, convidamos você para celebrar conosco o início da nossa história.',
   },
   birthday: {
     label: 'Aniversário',
@@ -39,6 +45,8 @@ export const EVENT_TYPES: Record<EventType, EventTypeProfile> = {
     venueLabels: ['Local', 'Festa'],
     venuePlaceholders: ['Ex: Salão de festas Alegria', 'Ex: Espaço Villa Jardim'],
     giftMessageLabel: 'Mensagem para quem está comemorando (opcional)',
+    inviteOccasion: ['celebrar o meu aniversário', 'celebrar o nosso aniversário'],
+    inviteMessagePlaceholder: 'Ex: Mais um ano de vida merece ser comemorado com quem eu amo. Conto com você!',
   },
   graduation: {
     label: 'Formatura',
@@ -48,6 +56,9 @@ export const EVENT_TYPES: Record<EventType, EventTypeProfile> = {
     venueLabels: ['Colação de grau', 'Baile'],
     venuePlaceholders: ['Ex: Teatro Municipal', 'Ex: Espaço Villa Jardim'],
     giftMessageLabel: 'Mensagem para quem está se formando (opcional)',
+    inviteOccasion: ['celebrar a minha formatura', 'celebrar a nossa formatura'],
+    inviteMessagePlaceholder:
+      'Ex: Depois de anos de dedicação, chegou a hora de celebrar essa conquista com quem esteve ao meu lado.',
   },
   other: {
     label: 'Celebração',
@@ -58,6 +69,8 @@ export const EVENT_TYPES: Record<EventType, EventTypeProfile> = {
     venueLabels: ['Local', 'Festa'],
     venuePlaceholders: ['Ex: Salão de festas Alegria', 'Ex: Espaço Villa Jardim'],
     giftMessageLabel: 'Mensagem para quem está celebrando (opcional)',
+    inviteOccasion: ['celebrar comigo', 'celebrar conosco'],
+    inviteMessagePlaceholder: 'Ex: Esse momento só fica completo com as pessoas que amamos por perto.',
   },
 }
 
@@ -70,6 +83,11 @@ export function eventTypeOptionLabel(type: EventType): string {
 }
 
 type EventNames = Pick<PublicEvent, 'event_type' | 'host_name' | 'host_name_secondary' | 'subtitle'>
+
+/** O convite fala na primeira pessoa do plural? Casamento sempre; o resto, com dois nomes. */
+export function hasTwoHosts(event: Pick<PublicEvent, 'event_type' | 'host_name_secondary'>): boolean {
+  return event.event_type === 'wedding' || Boolean(event.host_name_secondary)
+}
 
 export function formatHostNames(event: EventNames, joiner = ' & '): string {
   return event.host_name_secondary ? `${event.host_name}${joiner}${event.host_name_secondary}` : event.host_name

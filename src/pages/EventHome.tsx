@@ -9,7 +9,7 @@ import { PageShell } from '../components/PageShell'
 export default function EventHome() {
   return (
     <PageShell>
-      <InviteDetails isHome />
+      <InviteDetails />
     </PageShell>
   )
 }

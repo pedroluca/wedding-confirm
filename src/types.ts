@@ -14,6 +14,9 @@ export type EventType = 'wedding' | 'birthday' | 'graduation' | 'other'
 
 export type NameFont = 'sans' | 'fleur' | 'pinyon'
 
+/** Abertura do convite: direto no conteúdo ou um dos envelopes. */
+export type InviteStyle = 'direct' | 'letter' | 'doors' | 'vertical'
+
 export type PublicEvent = {
   slug: string
   event_type: EventType
@@ -35,6 +38,7 @@ export type PublicEvent = {
   music_url: string | null
   color_primary: string
   name_font: NameFont
+  invite_style: InviteStyle
 }
 
 export type AdminEvent = PublicEvent & {

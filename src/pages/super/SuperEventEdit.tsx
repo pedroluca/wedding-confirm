@@ -3,7 +3,8 @@ import { useParams } from 'react-router-dom'
 import { api, ApiError } from '../../lib/api'
 import { useAdminAuth } from '../../lib/adminAuthContext'
 import { EVENT_TYPE_OPTIONS, EVENT_TYPES, eventTypeOptionLabel } from '../../lib/eventTypes'
-import type { EventType, NameFont, SuperEvent } from '../../types'
+import { INVITE_STYLE_OPTIONS, resolveInviteStyle } from '../../lib/inviteStyles'
+import type { EventType, InviteStyle, NameFont, SuperEvent } from '../../types'
 
 type EditForm = {
   event_type: EventType
@@ -21,6 +22,7 @@ type EditForm = {
   pix_key: string
   color_primary: string
   name_font: NameFont
+  invite_style: InviteStyle
   access_expires_at: string
   price_charged: string
   last_payment_at: string
@@ -55,6 +57,7 @@ function toFormState(event: SuperEvent): EditForm {
     pix_key: event.pix_key ?? '',
     color_primary: event.color_primary,
     name_font: event.name_font,
+    invite_style: resolveInviteStyle(event),
     access_expires_at: toDatetimeLocalValue(event.access_expires_at),
     price_charged: event.price_charged !== null ? String(event.price_charged) : '',
     last_payment_at: event.last_payment_at ?? '',
@@ -108,6 +111,7 @@ export default function SuperEventEdit() {
           pix_key: form.pix_key.trim() || undefined,
           color_primary: form.color_primary,
           name_font: form.name_font,
+          invite_style: form.invite_style,
           access_expires_at: form.access_expires_at || undefined,
           price_charged: form.price_charged || undefined,
           last_payment_at: form.last_payment_at || undefined,
@@ -282,18 +286,31 @@ export default function SuperEventEdit() {
           />
         </label>
 
-        {form.event_type === 'wedding' && (
-          <label className="text-sm font-medium text-[#3f3450] sm:col-span-2">
-            Mensagem do convite
-            <textarea
-              rows={3}
-              maxLength={1000}
-              value={form.invite_message}
-              onChange={(e) => setForm((prev) => prev && { ...prev, invite_message: e.target.value })}
-              className="mt-1 w-full resize-y rounded-xl border border-brand-primary-soft px-4 py-2 outline-none focus:border-brand-primary"
-            />
-          </label>
-        )}
+        <label className="text-sm font-medium text-[#3f3450] sm:col-span-2">
+          Abertura do convite
+          <select
+            value={form.invite_style}
+            onChange={(e) => setForm((prev) => prev && { ...prev, invite_style: e.target.value as InviteStyle })}
+            className="mt-1 w-full rounded-xl border border-brand-primary-soft px-4 py-2 outline-none focus:border-brand-primary"
+          >
+            {INVITE_STYLE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label} — {option.description}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="text-sm font-medium text-[#3f3450] sm:col-span-2">
+          Mensagem do convite
+          <textarea
+            rows={3}
+            maxLength={1000}
+            value={form.invite_message}
+            onChange={(e) => setForm((prev) => prev && { ...prev, invite_message: e.target.value })}
+            className="mt-1 w-full resize-y rounded-xl border border-brand-primary-soft px-4 py-2 outline-none focus:border-brand-primary"
+          />
+        </label>
 
         <div className="border-t border-brand-primary-soft pt-4 sm:col-span-2">
           <p className="text-sm font-semibold text-[#3f3450]">Acesso e financeiro</p>

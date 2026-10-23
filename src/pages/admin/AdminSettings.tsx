@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react'
-import { CalendarDays, Heart, MessageSquareText, RotateCcw, Shirt, Sparkles } from 'lucide-react'
+import { CalendarDays, Heart, MailOpen, MessageSquareText, RotateCcw, Shirt, Sparkles } from 'lucide-react'
 import { api, ApiError } from '../../lib/api'
 import { useAdminAuth } from '../../lib/adminAuthContext'
 import { useAdminEvent, useSetAdminEvent } from '../../lib/adminEventContext'
 import { NAME_FONT_CLASSES_COMPACT } from '../../lib/eventFormat'
 import { EVENT_TYPES } from '../../lib/eventTypes'
+import { resolveInviteStyle } from '../../lib/inviteStyles'
 import { resizeImage } from '../../lib/resizeImage'
 import {
   buildShareMessage,
@@ -12,7 +13,8 @@ import {
   SHARE_MESSAGE_MAX_LENGTH,
   shareMessageVariables,
 } from '../../lib/shareMessage'
-import type { AdminEvent, EventType, NameFont } from '../../types'
+import { InviteStylePicker } from '../../components/InviteStylePicker'
+import type { AdminEvent, EventType, InviteStyle, NameFont } from '../../types'
 
 // Mesmos limites do backend (read_event_branding_fields e src/Uploads.php).
 const INVITE_MESSAGE_MAX_LENGTH = 1000
@@ -35,6 +37,7 @@ type SettingsForm = {
   pix_key: string
   color_primary: string
   name_font: NameFont
+  invite_style: InviteStyle
   logo: File | null
   cover_photo: File | null
   remove_cover_photo: boolean
@@ -85,6 +88,7 @@ function toFormState(event: AdminEvent): SettingsForm {
     pix_key: event.pix_key ?? '',
     color_primary: event.color_primary,
     name_font: event.name_font,
+    invite_style: resolveInviteStyle(event),
     logo: null,
     cover_photo: null,
     remove_cover_photo: false,
@@ -112,6 +116,7 @@ function toFormData(form: SettingsForm, eventType: EventType): FormData {
   data.set('pix_key', form.pix_key.trim())
   data.set('color_primary', form.color_primary)
   data.set('name_font', form.name_font)
+  data.set('invite_style', form.invite_style)
   if (form.logo) {
     data.set('logo', form.logo)
   }
@@ -183,8 +188,6 @@ export default function AdminSettings() {
   const [preparingCover, setPreparingCover] = useState(false)
   const [previewWithGroup, setPreviewWithGroup] = useState(true)
 
-  // Foto, música e mensagem só aparecem no convite com envelope, que hoje é do casamento.
-  const isWedding = event.event_type === 'wedding'
   const typeProfile = EVENT_TYPES[event.event_type]
   const [hostLabel, hostSecondaryLabel] = typeProfile.hostLabels
   const [venueLabel, secondVenueLabel] = typeProfile.venueLabels
@@ -192,14 +195,18 @@ export default function AdminSettings() {
   const shownCover = coverPreview ?? event.cover_photo_url
   const defaultShareMessage = DEFAULT_SHARE_MESSAGE[event.event_type]
 
-  // Prévia com o que está no formulário (mesmo antes de salvar).
+  // Prévias (mensagem de envio, miniaturas da abertura) com o que está no
+  // formulário, mesmo antes de salvar.
+  const previewEvent: AdminEvent = {
+    ...event,
+    host_name: form.host_name.trim() || event.host_name,
+    host_name_secondary: form.host_name_secondary.trim() || null,
+    event_date: form.event_date || null,
+    color_primary: form.color_primary,
+    name_font: form.name_font,
+  }
   const sharePreview = buildShareMessage(form.share_message.trim() || defaultShareMessage, {
-    event: {
-      ...event,
-      host_name: form.host_name.trim() || event.host_name,
-      host_name_secondary: form.host_name_secondary.trim() || null,
-      event_date: form.event_date || null,
-    },
+    event: previewEvent,
     guestName: 'João Silva',
     dependentNames: previewWithGroup ? ['Ana Silva', 'Pedro Silva'] : [],
     link: `${window.location.origin}/${event.slug}/joao-silva-1`,
@@ -483,99 +490,113 @@ export default function AdminSettings() {
           </label>
         </Section>
 
-        {isWedding && (
-          <Section
-            icon={<Sparkles size={18} />}
-            title="Convite"
-            description="Mensagem, foto e música que o convidado vê ao abrir o envelope."
-          >
-            <label className={`${labelClass} sm:col-span-2`}>
-              Mensagem do convite
-              <textarea
-                rows={4}
-                maxLength={INVITE_MESSAGE_MAX_LENGTH}
-                value={form.invite_message}
-                onChange={(e) => setForm((prev) => ({ ...prev, invite_message: e.target.value }))}
-                placeholder="Ex: Com a bênção de Deus e de nossas famílias, convidamos você para celebrar conosco o início da nossa história."
-                className={`${inputClass} resize-y`}
-              />
-              <span className="block text-right text-xs font-normal text-[#8b7a9c]">
-                {form.invite_message.length}/{INVITE_MESSAGE_MAX_LENGTH}
-              </span>
-            </label>
+        <Section
+          icon={<MailOpen size={18} />}
+          title="Abertura do convite"
+          description="O que o convidado vê ao abrir o link, antes do convite. Toque em um estilo para ver a abertura."
+        >
+          <div className="sm:col-span-2">
+            <InviteStylePicker
+              event={previewEvent}
+              value={form.invite_style}
+              onChange={(style) => setForm((prev) => ({ ...prev, invite_style: style }))}
+            />
+          </div>
+        </Section>
 
-            <div className={boxClass}>
-              <p className={boxTitleClass}>Foto do casal</p>
-              <p className={hintClass}>
-                Aparece no topo do convite e vai desfocando até o fundo. Fotos na vertical funcionam melhor.
-              </p>
-              {shownCover && (
-                <img
-                  src={shownCover}
-                  alt=""
-                  className={`h-40 w-32 rounded-xl object-cover transition ${
-                    form.remove_cover_photo ? 'opacity-40 grayscale' : ''
-                  }`}
-                />
-              )}
-              <input
-                ref={coverRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                aria-label="Foto do casal"
-                onChange={handleCoverChange}
-                className={fileInputClass}
-              />
-              {preparingCover && <p className={hintClass}>Preparando a foto...</p>}
-              {event.cover_photo_url && !form.cover_photo && (
-                <label className={checkboxLabelClass}>
-                  <input
-                    type="checkbox"
-                    checked={form.remove_cover_photo}
-                    onChange={(e) => setForm((prev) => ({ ...prev, remove_cover_photo: e.target.checked }))}
-                    className="accent-brand-primary"
-                  />
-                  Remover foto atual
-                </label>
-              )}
-            </div>
+        <Section
+          icon={<Sparkles size={18} />}
+          title="Convite"
+          description="Mensagem, foto e música que aparecem no convite."
+        >
+          <label className={`${labelClass} sm:col-span-2`}>
+            Mensagem do convite
+            <textarea
+              rows={4}
+              maxLength={INVITE_MESSAGE_MAX_LENGTH}
+              value={form.invite_message}
+              onChange={(e) => setForm((prev) => ({ ...prev, invite_message: e.target.value }))}
+              placeholder={typeProfile.inviteMessagePlaceholder}
+              className={`${inputClass} resize-y`}
+            />
+            <span className="block text-right text-xs font-normal text-[#8b7a9c]">
+              {form.invite_message.length}/{INVITE_MESSAGE_MAX_LENGTH}
+            </span>
+          </label>
 
-            <div className={boxClass}>
-              <p className={boxTitleClass}>Música</p>
-              <p className={hintClass}>
-                Começa a tocar quando o convidado abre o envelope, com um botão para pausar. MP3, M4A ou OGG, até
-                15MB.
-              </p>
-              {event.music_url && !form.music && (
-                <audio
-                  controls
-                  preload="none"
-                  src={event.music_url}
-                  className={`w-full transition ${form.remove_music ? 'opacity-40' : ''}`}
-                />
-              )}
-              <input
-                ref={musicRef}
-                type="file"
-                accept=".mp3,.m4a,.ogg,audio/mpeg,audio/mp4,audio/ogg"
-                aria-label="Música do convite"
-                onChange={handleMusicChange}
-                className={fileInputClass}
+          <div className={boxClass}>
+            <p className={boxTitleClass}>Foto de capa</p>
+            <p className={hintClass}>
+              Aparece no topo do convite e vai desfocando até o fundo. Fotos na vertical funcionam melhor.
+            </p>
+            {shownCover && (
+              <img
+                src={shownCover}
+                alt=""
+                className={`h-40 w-32 rounded-xl object-cover transition ${
+                  form.remove_cover_photo ? 'opacity-40 grayscale' : ''
+                }`}
               />
-              {event.music_url && !form.music && (
-                <label className={checkboxLabelClass}>
-                  <input
-                    type="checkbox"
-                    checked={form.remove_music}
-                    onChange={(e) => setForm((prev) => ({ ...prev, remove_music: e.target.checked }))}
-                    className="accent-brand-primary"
-                  />
-                  Remover música atual
-                </label>
-              )}
-            </div>
-          </Section>
-        )}
+            )}
+            <input
+              ref={coverRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              aria-label="Foto de capa"
+              onChange={handleCoverChange}
+              className={fileInputClass}
+            />
+            {preparingCover && <p className={hintClass}>Preparando a foto...</p>}
+            {event.cover_photo_url && !form.cover_photo && (
+              <label className={checkboxLabelClass}>
+                <input
+                  type="checkbox"
+                  checked={form.remove_cover_photo}
+                  onChange={(e) => setForm((prev) => ({ ...prev, remove_cover_photo: e.target.checked }))}
+                  className="accent-brand-primary"
+                />
+                Remover foto atual
+              </label>
+            )}
+          </div>
+
+          <div className={boxClass}>
+            <p className={boxTitleClass}>Música</p>
+            <p className={hintClass}>
+              {form.invite_style === 'direct'
+                ? 'Na abertura "Direto" o convidado não toca em nada para abrir, então a música só começa quando ele aperta o botão de música.'
+                : 'Começa a tocar quando o convidado abre o envelope, com um botão para pausar.'}{' '}
+              MP3, M4A ou OGG, até 15MB.
+            </p>
+            {event.music_url && !form.music && (
+              <audio
+                controls
+                preload="none"
+                src={event.music_url}
+                className={`w-full transition ${form.remove_music ? 'opacity-40' : ''}`}
+              />
+            )}
+            <input
+              ref={musicRef}
+              type="file"
+              accept=".mp3,.m4a,.ogg,audio/mpeg,audio/mp4,audio/ogg"
+              aria-label="Música do convite"
+              onChange={handleMusicChange}
+              className={fileInputClass}
+            />
+            {event.music_url && !form.music && (
+              <label className={checkboxLabelClass}>
+                <input
+                  type="checkbox"
+                  checked={form.remove_music}
+                  onChange={(e) => setForm((prev) => ({ ...prev, remove_music: e.target.checked }))}
+                  className="accent-brand-primary"
+                />
+                Remover música atual
+              </label>
+            )}
+          </div>
+        </Section>
 
         <Section
           icon={<MessageSquareText size={18} />}

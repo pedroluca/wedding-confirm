@@ -1,26 +1,9 @@
 import { useEvent } from '../lib/eventContext'
-import { formatEventDate, NAME_FONT_CLASSES, NAME_FONT_CLASSES_COMPACT } from '../lib/eventFormat'
-import { EVENT_TYPES } from '../lib/eventTypes'
+import { NAME_FONT_CLASSES, NAME_FONT_CLASSES_COMPACT } from '../lib/eventFormat'
 
-function MaybeMapLink({ href, children }: { href: string | null; children: string }) {
-  if (!href) return children
-
-  return (
-    <a href={href} target="_blank" rel="noreferrer" className="underline decoration-brand-primary underline-offset-4">
-      {children}
-    </a>
-  )
-}
-
-export function InviteDetails({
-  isHome = false,
-  compact = false,
-}: {
-  isHome?: boolean
-  compact?: boolean
-}) {
+/** Logo + nomes do evento: grande na página do evento, compacto no topo da confirmação. */
+export function InviteDetails({ compact = false }: { compact?: boolean }) {
   const event = useEvent()
-  const [venueLabel, secondVenueLabel] = EVENT_TYPES[event.event_type].venueLabels
 
   return (
     <div className="mx-auto w-full max-w-md text-center">
@@ -48,47 +31,6 @@ export function InviteDetails({
       </h1>
       {event.subtitle && !compact && (
         <p className="mt-3 font-serif text-xl text-brand-primary italic">{event.subtitle}</p>
-      )}
-
-      {!isHome && !compact && (
-        <>
-          {event.event_date && (
-            <p className="mt-4 text-lg text-[#6b5d80]">{formatEventDate(event.event_date)}</p>
-          )}
-
-          <dl className="mt-8 space-y-4 rounded-3xl border border-brand-primary-soft bg-brand-primary-soft p-6 text-left">
-            {event.venue_name && (
-              <div>
-                <dt className="text-xs font-semibold tracking-wide text-brand-primary uppercase">{venueLabel}</dt>
-                <dd className="text-[#3f3450]">{event.venue_name}</dd>
-              </div>
-            )}
-            {event.address && (
-              <div>
-                <dt className="text-xs font-semibold tracking-wide text-brand-primary uppercase">Endereço</dt>
-                <dd className="text-[#3f3450]">
-                  <MaybeMapLink href={event.maps_url}>{event.address}</MaybeMapLink>
-                </dd>
-              </div>
-            )}
-            {event.venue_name_secondary && (
-              <div>
-                <dt className="text-xs font-semibold tracking-wide text-brand-primary uppercase">
-                  {secondVenueLabel}
-                </dt>
-                <dd className="text-[#3f3450]">
-                  <MaybeMapLink href={event.maps_url_secondary}>{event.venue_name_secondary}</MaybeMapLink>
-                </dd>
-              </div>
-            )}
-            {event.dress_code && (
-              <div>
-                <dt className="text-xs font-semibold tracking-wide text-brand-primary uppercase">Traje</dt>
-                <dd className="text-[#3f3450]">{event.dress_code}</dd>
-              </div>
-            )}
-          </dl>
-        </>
       )}
     </div>
   )

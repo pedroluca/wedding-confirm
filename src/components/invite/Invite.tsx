@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useEvent } from '../../lib/eventContext'
+import { OPEN_DURATION_MS, resolveInviteStyle } from '../../lib/inviteStyles'
 import { useMusic } from '../../lib/musicContext'
 import type { GuestInviteResponse } from '../../types'
 import { Envelope } from './Envelope'
+import { GateEnvelope } from './GateEnvelope'
 import { InviteContent } from './InviteContent'
 import './invite.css'
-
-// Precisa acompanhar a linha do tempo de .is-opening em invite.css.
-const OPEN_DURATION_MS = 2500
 
 // Convites já abertos nesta aba (memória do módulo, não sessionStorage):
 // voltar de /confirmar ou /presentes não repete o envelope, mas recarregar
@@ -16,8 +15,12 @@ const openedInvites = new Set<string>()
 
 type Phase = 'closed' | 'opening' | 'open'
 
-/** Convite de casamento: envelope fechado → animação de abertura → tela interna. */
-export function WeddingInvite({
+/**
+ * Convite do convidado: envelope fechado → animação de abertura → tela
+ * interna. No estilo "Direto" vai direto pra tela interna — e aí a música
+ * só começa pelo botão, já que não há um toque pra liberar o áudio.
+ */
+export function Invite({
   data,
   eventSlug,
   guestSlug,
@@ -28,8 +31,11 @@ export function WeddingInvite({
 }) {
   const event = useEvent()
   const { play, setToggleHidden } = useMusic()
+  const style = resolveInviteStyle(event)
   const inviteKey = `${eventSlug}/${guestSlug}`
-  const [phase, setPhase] = useState<Phase>(() => (openedInvites.has(inviteKey) ? 'open' : 'closed'))
+  const [phase, setPhase] = useState<Phase>(() =>
+    style === 'direct' || openedInvites.has(inviteKey) ? 'open' : 'closed'
+  )
 
   // Tela fechada só com os nomes e o envelope, sem o botão de música.
   useEffect(() => {
@@ -44,6 +50,14 @@ export function WeddingInvite({
     image.src = event.cover_photo_url
   }, [phase, event.cover_photo_url])
 
+  if (style === 'direct' || phase === 'open') {
+    return (
+      <div className="invite-root min-h-svh">
+        <InviteContent data={data} eventSlug={eventSlug} guestSlug={guestSlug} />
+      </div>
+    )
+  }
+
   const handleOpen = () => {
     if (phase !== 'closed') return
     // Síncrono dentro do toque: é o que libera o áudio no iOS.
@@ -55,15 +69,21 @@ export function WeddingInvite({
       return
     }
     setPhase('opening')
-    window.setTimeout(() => setPhase('open'), OPEN_DURATION_MS)
+    window.setTimeout(() => setPhase('open'), OPEN_DURATION_MS[style])
   }
+
+  const opening = phase === 'opening'
 
   return (
     <div className="invite-root min-h-svh">
-      {phase === 'open' ? (
-        <InviteContent data={data} eventSlug={eventSlug} guestSlug={guestSlug} />
+      {style === 'letter' ? (
+        <Envelope opening={opening} onOpen={handleOpen} />
       ) : (
-        <Envelope opening={phase === 'opening'} onOpen={handleOpen} />
+        <GateEnvelope
+          orientation={style === 'doors' ? 'horizontal' : 'vertical'}
+          opening={opening}
+          onOpen={handleOpen}
+        />
       )}
     </div>
   )
