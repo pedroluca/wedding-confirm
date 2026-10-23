@@ -110,7 +110,7 @@ export function InviteContent({
   const showCountdown = event.show_countdown !== false
   const showCalendar = event.show_calendar !== false
   const showGifts = giftsEnabled(event)
-  // Premium (e Ilimitado) tiram o "Feito com Presenzo"; undefined = API anterior ao campo.
+  // O Premium tira o "Feito com Presenzo"; undefined = API anterior ao campo.
   const showCredit = event.show_credit !== false
 
   const answered = data.members.every((member) => member.status !== 'pendente')

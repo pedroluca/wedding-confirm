@@ -27,7 +27,7 @@ export const PLAN_OPTIONS: { value: EventPlan; label: string }[] = [
 export function planDescription(plan: EventPlan, settings: PricingSettings): string {
   const days = planGraceDays(plan, settings)
   if (days === null) {
-    return 'Interno: todas as funções, sem limites e sem prazo. Para qualquer evento que você quiser liberar.'
+    return 'Interno: sem limites e sem prazo, mantendo o "Feito com Presenzo". Para qualquer evento que você quiser liberar.'
   }
   return plan === 'premium'
     ? `${days} dias de acesso ao painel depois do evento e convite sem o "Feito com Presenzo".`

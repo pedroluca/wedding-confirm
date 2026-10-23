@@ -114,7 +114,7 @@ CREATE TABLE coupons (          -- cupons de desconto
 ```
 - **Valores iniciais na migração:** tolerância de 20%, prazos de 15 e 30 dias, e os admins incluídos (veja as perguntas abaixo).
 - **Prazos de acesso:** hoje vêm de `config('access.grace_days')`. Passam a ser lidos de `app_settings`, com o config de reserva.
-- **Collation:** as tabelas novas declaram `COLLATE=utf8mb4_uca1400_ai_ci`, o mesmo das tabelas que vieram da produção. Antes de rodar em produção, confira o collation de `events` lá (o comando está no topo da migração).
+- **Collation:** a contagem de usos do cupom compara `coupons.code` com `events.coupon_code` declarando o collation na consulta, então funciona mesmo que as tabelas novas fiquem com um collation diferente das antigas.
 
 ### Migração 017: cupom usado na venda
 ```sql
@@ -194,11 +194,14 @@ ALTER TABLE events
 
 - **Hoje:**
   - prazo de acesso de 30 dias depois do evento, o dobro do Padrão (editável em "Preços e planos");
-  - **sem o "Feito com Presenzo"** no rodapé do convite (fase 8). Vale também para o Ilimitado, que tem tudo do Premium.
-- **Candidatos para depois**, a decidir um por um:
-  - **aberturas Portas e Vertical** exclusivas, com Carta e Direto no Padrão;
+  - **sem o "Feito com Presenzo"** no rodapé do convite (fase 8). Só o Premium: o Ilimitado é usado em eventos próprios e da família e mantém o crédito, pra divulgar.
+- **Candidatos para depois**, a decidir um por um. Nenhum tira algo que todos já têm (as quatro aberturas atuais continuam para todos):
+  - **aberturas novas exclusivas** (ex: caixa de presente, cortina, pergaminho), somadas às atuais;
+  - **recados dos convidados:** ao confirmar, o convidado deixa uma mensagem, e o casal vê um mural no painel;
+  - **lembrete para quem não respondeu:** em Presenças, a mensagem pronta para mandar a cada pendente;
+  - **endereço personalizado do convite** (presenzo.com.br/ana-e-joao), definido antes de enviar os links;
   - **mais admins incluídos;**
-  - **exportar a lista de presenças** (planilha ou PDF);
+  - **exportar a lista de presenças** em planilha (fica para o futuro);
   - **métricas de presentes** (quem viu e quantas vezes);
   - **música e foto de capa.** Hoje são de todos, então tirar do Padrão mudaria eventos existentes. Melhor só para eventos novos.
 

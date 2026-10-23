@@ -50,7 +50,7 @@ export type PublicEvent = {
   show_calendar: boolean
   /** Lista de presentes e Pix no ar, já considerando o plano. */
   gifts_enabled: boolean
-  /** "Feito com Presenzo" no rodapé do convite (some no Premium e no Ilimitado). */
+  /** "Feito com Presenzo" no rodapé do convite (some só no Premium). */
   show_credit: boolean
 }
 

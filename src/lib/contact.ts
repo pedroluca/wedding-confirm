@@ -1,4 +1,4 @@
-// TODO: trocar pelo número real (com DDI+DDD, só dígitos) antes de publicar.
+// WhatsApp do Presenzo (DDI + DDD + número, só dígitos).
 export const WHATSAPP_URL = 'https://wa.me/5577936181281'
 
 /** Link do WhatsApp do Presenzo já com a mensagem escrita. */
