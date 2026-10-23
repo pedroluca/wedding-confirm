@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { CalendarDays, Heart, MailOpen, MessageSquareText, RotateCcw, Shirt, Sparkles } from 'lucide-react'
 import { api, ApiError } from '../../lib/api'
 import { useAdminAuth } from '../../lib/adminAuthContext'
 import { useAdminEvent, useSetAdminEvent } from '../../lib/adminEventContext'
-import { NAME_FONT_CLASSES_COMPACT } from '../../lib/eventFormat'
+import { NAME_FONT_CLASSES_COMPACT, NAME_FONT_OPTIONS } from '../../lib/eventFormat'
 import { EVENT_TYPES } from '../../lib/eventTypes'
 import { resolveInviteStyle } from '../../lib/inviteStyles'
 import { resizeImage } from '../../lib/resizeImage'
@@ -14,6 +14,18 @@ import {
   shareMessageVariables,
 } from '../../lib/shareMessage'
 import { InviteStylePicker } from '../../components/InviteStylePicker'
+import {
+  boxClass,
+  boxTitleClass,
+  checkboxLabelClass,
+  fileInputClass,
+  hintClass,
+  inputClass,
+  labelClass,
+  SaveBar,
+  Section,
+} from '../../components/panel/form'
+import { PageHeader } from '../../components/panel/ui'
 import type { AdminEvent, EventType, InviteStyle, NameFont } from '../../types'
 
 // Mesmos limites do backend (read_event_branding_fields e src/Uploads.php).
@@ -46,12 +58,6 @@ type SettingsForm = {
   music: File | null
   remove_music: boolean
 }
-
-const NAME_FONT_OPTIONS: { value: NameFont; label: string; fontFamily: string }[] = [
-  { value: 'sans', label: 'Padrão', fontFamily: 'inherit' },
-  { value: 'fleur', label: 'Caligrafia (Fleur De Leah)', fontFamily: "'Fleur De Leah', cursive" },
-  { value: 'pinyon', label: 'Caligrafia (Pinyon Script)', fontFamily: "'Pinyon Script', cursive" },
-]
 
 const dateTimeFormatter = new Intl.DateTimeFormat('pt-BR', {
   day: 'numeric',
@@ -137,43 +143,6 @@ function toFormData(form: SettingsForm, eventType: EventType): FormData {
     data.set('remove_music', '1')
   }
   return data
-}
-
-const inputClass =
-  'mt-1 w-full rounded-xl border border-brand-primary-soft bg-white px-4 py-2 font-normal outline-none focus:border-brand-primary'
-const labelClass = 'block text-sm font-medium text-[#3f3450]'
-const hintClass = 'mt-1 block text-xs font-normal text-[#8b7a9c]'
-const fileInputClass =
-  'mt-2 block w-full text-sm text-[#6b5d80] file:mr-3 file:cursor-pointer file:rounded-full file:border-0 file:bg-brand-primary-soft file:px-4 file:py-2 file:text-sm file:font-medium file:text-brand-primary hover:file:bg-brand-primary/20'
-const boxClass = 'space-y-3 rounded-xl border border-brand-primary-soft bg-brand-primary-soft/25 p-4'
-const boxTitleClass = 'text-xs font-semibold tracking-wide text-brand-primary uppercase'
-const checkboxLabelClass = 'mt-2 flex cursor-pointer items-center gap-2 text-sm text-[#6b5d80]'
-
-function Section({
-  icon,
-  title,
-  description,
-  children,
-}: {
-  icon: ReactNode
-  title: string
-  description?: string
-  children: ReactNode
-}) {
-  return (
-    <section className="rounded-2xl border border-brand-primary-soft bg-white p-5 sm:p-6">
-      <div className="flex items-start gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-primary-soft text-brand-primary">
-          {icon}
-        </span>
-        <div>
-          <h2 className="font-semibold text-[#3f3450]">{title}</h2>
-          {description && <p className="mt-0.5 text-sm text-[#8b7a9c]">{description}</p>}
-        </div>
-      </div>
-      <div className="mt-5 grid gap-4 sm:grid-cols-2">{children}</div>
-    </section>
-  )
 }
 
 export default function AdminSettings() {
@@ -292,17 +261,21 @@ export default function AdminSettings() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-[#3f3450]">Configurações do evento</h1>
-      <p className="mt-1 text-sm text-[#8b7a9c]">
-        Personalize as informações e a cor que aparecem para os convidados no convite.
-      </p>
-      <p className="mt-2 text-sm font-medium text-brand-primary">
-        {event.access_expires_at
-          ? `Seu acesso ao painel está liberado até ${formatAccessExpiresAt(event.access_expires_at)}.`
-          : 'Seu acesso ao painel não tem prazo de expiração.'}
-      </p>
+      <PageHeader
+        title="Configurações do evento"
+        description={
+          <>
+            Personalize as informações e a cor que aparecem para os convidados no convite.{' '}
+            <span className="font-medium text-brand-primary">
+              {event.access_expires_at
+                ? `Seu acesso ao painel está liberado até ${formatAccessExpiresAt(event.access_expires_at)}.`
+                : 'Seu acesso ao painel não tem prazo de expiração.'}
+            </span>
+          </>
+        }
+      />
 
-      <form onSubmit={handleSubmit} className="mt-6 space-y-5">
+      <form onSubmit={handleSubmit} className="mt-8 space-y-5">
         <Section
           icon={<Heart size={18} />}
           title={typeProfile.hostsTitle}
@@ -714,17 +687,7 @@ export default function AdminSettings() {
           </div>
         </Section>
 
-        <div className="sticky bottom-0 z-10 -mx-6 flex flex-wrap items-center justify-end gap-x-4 gap-y-2 border-t border-brand-primary-soft bg-white/90 px-6 py-3 backdrop-blur">
-          {error && <p className="mr-auto text-sm text-rose-600">{error}</p>}
-          {saved && !error && <p className="mr-auto text-sm text-emerald-600">Alterações salvas!</p>}
-          <button
-            type="submit"
-            disabled={saving || preparingCover}
-            className="cursor-pointer rounded-full bg-brand-primary px-8 py-2.5 font-semibold text-white transition hover:bg-brand-primary-hover disabled:opacity-60"
-          >
-            {saving ? 'Salvando...' : 'Salvar alterações'}
-          </button>
-        </div>
+        <SaveBar saving={saving} disabled={preparingCover} error={error} saved={saved} />
       </form>
     </div>
   )

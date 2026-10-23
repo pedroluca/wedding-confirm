@@ -50,12 +50,24 @@ export type AdminEvent = PublicEvent & {
   share_message: string | null
 }
 
+/** Números do evento para o super-admin (pessoas = titulares + relacionados). */
+export type EventStats = {
+  invites: number
+  people: number
+  confirmed: number
+  pending: number
+  declined: number
+  admins: number
+  gift_claims: number
+}
+
 export type SuperEvent = AdminEvent & {
   id: number
   price_charged: number | null
   last_payment_at: string | null
   payment_notes: string | null
   created_at: string
+  stats: EventStats
 }
 
 export type GuestMember = {

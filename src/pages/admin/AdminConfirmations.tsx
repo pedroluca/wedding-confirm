@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Gift } from 'lucide-react'
+import { CircleCheck, CircleX, Clock, Gift } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAdminAuth } from '../../lib/adminAuthContext'
 import { formatGiftsLastView, giftsViewsTitle } from '../../lib/giftsViews'
 import { StatusBadge } from '../../components/StatusBadge'
+import { PageHeader, panelCardClass, StatCard } from '../../components/panel/ui'
 import type { AdminGuest, GuestStatus } from '../../types'
 
 // Os acessos à lista de presentes são do link do convite, então só a linha
@@ -71,11 +72,29 @@ export default function AdminConfirmations() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-[#3f3450]">Lista de presenças</h1>
-      <p className="mt-1 text-sm text-[#8b7a9c]">
-        {counts.confirmado} confirmados · {counts.pendente} pendentes · {counts.recusado} recusados ·{' '}
-        {counts.presentes} {counts.presentes === 1 ? 'convite viu' : 'convites viram'} os presentes
-      </p>
+      <PageHeader
+        title="Lista de presenças"
+        description="Quem já respondeu o convite, quem falta e quem abriu a lista de presentes."
+      />
+
+      {!loading && (
+        <div className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <StatCard
+            label="Confirmados"
+            value={counts.confirmado}
+            hint={`de ${rows.length} ${rows.length === 1 ? 'pessoa' : 'pessoas'}`}
+            icon={CircleCheck}
+          />
+          <StatCard label="Pendentes" value={counts.pendente} icon={Clock} />
+          <StatCard label="Recusados" value={counts.recusado} icon={CircleX} />
+          <StatCard
+            label="Viram os presentes"
+            value={counts.presentes}
+            hint={`de ${guests.length} ${guests.length === 1 ? 'convite' : 'convites'}`}
+            icon={Gift}
+          />
+        </div>
+      )}
 
       <div className="mt-6 flex flex-wrap gap-2">
         {FILTERS.map((f) => (
@@ -98,21 +117,21 @@ export default function AdminConfirmations() {
       {loading ? (
         <p className="mt-8 text-[#8b7a9c]">Carregando...</p>
       ) : (
-        <div className="mt-6 overflow-x-auto rounded-2xl border border-brand-primary-soft">
+        <div className={`mt-4 overflow-x-auto ${panelCardClass}`}>
           <table className="w-full text-left text-sm">
-            <thead className="bg-brand-primary-soft/60 text-[#3f3450]">
+            <thead className="text-xs tracking-wide text-[#8b7a9c] uppercase">
               <tr>
-                <th className="px-4 py-3">Nome</th>
-                <th className="px-4 py-3">Grupo</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3" title="Quantas vezes o link do convite abriu a lista de presentes">
+                <th className="px-4 py-3 font-medium">Nome</th>
+                <th className="px-4 py-3 font-medium">Grupo</th>
+                <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium" title="Quantas vezes o link do convite abriu a lista de presentes">
                   Presentes
                 </th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((row) => (
-                <tr key={row.id} className="border-t border-brand-primary-soft">
+                <tr key={row.id} className="border-t border-[#f3eef5]">
                   <td className="px-4 py-3 text-[#3f3450]">{row.name}</td>
                   <td className="px-4 py-3 text-[#8b7a9c]">{row.group}</td>
                   <td className="px-4 py-3">

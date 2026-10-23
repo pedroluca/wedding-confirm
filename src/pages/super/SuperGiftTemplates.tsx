@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { api, ApiError } from '../../lib/api'
 import { useAdminAuth } from '../../lib/adminAuthContext'
 import { EVENT_TYPE_OPTIONS, EVENT_TYPES } from '../../lib/eventTypes'
+import { PageHeader, panelCardClass } from '../../components/panel/ui'
 import type { EventType, GiftTemplate } from '../../types'
 
 const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -126,37 +127,34 @@ export default function SuperGiftTemplates() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-[#3f3450]">Presentes sugeridos</h1>
-      <p className="mt-1 text-sm text-[#8b7a9c]">
-        Lista pronta que o admin de cada evento pode clonar para a própria lista de presentes, em vez
-        de montar do zero. Um conjunto por tipo de evento.
-      </p>
-      {!loading && (
-        <p className="mt-2 text-sm font-medium text-brand-primary">
-          {totalItens} {totalItens === 1 ? 'item' : 'itens'} · {totalUnidades}{' '}
-          {totalUnidades === 1 ? 'unidade no total' : 'unidades no total'}
-        </p>
-      )}
+      <PageHeader
+        title="Presentes sugeridos"
+        description="Lista pronta que o admin de cada evento pode clonar para a própria lista de presentes, em vez de montar do zero. Um conjunto por tipo de evento."
+      />
 
-      <div className="mt-4 flex flex-wrap gap-2">
+      <div className="mt-8 flex flex-wrap items-center gap-2">
         {EVENT_TYPE_OPTIONS.map((type) => (
           <button
             key={type}
             type="button"
             onClick={() => setTab(type)}
+            aria-pressed={tab === type}
             className={`cursor-pointer rounded-full px-4 py-2 text-sm font-medium transition ${
-              tab === type ? 'bg-brand-primary text-white' : 'border border-brand-primary-soft text-[#3f3450]'
+              tab === type ? 'bg-[#231b2e] text-white' : 'border border-[#ece6f0] bg-white text-[#6b5d80] hover:text-[#3f3450]'
             }`}
           >
             {EVENT_TYPES[type].label}
           </button>
         ))}
+        {!loading && (
+          <p className="ml-auto text-sm text-[#8b7a9c]">
+            {totalItens} {totalItens === 1 ? 'item' : 'itens'} · {totalUnidades}{' '}
+            {totalUnidades === 1 ? 'unidade no total' : 'unidades no total'}
+          </p>
+        )}
       </div>
 
-      <form
-        onSubmit={handleCreate}
-        className="mt-6 grid gap-3 rounded-2xl border border-brand-primary-soft p-5 sm:grid-cols-2"
-      >
+      <form onSubmit={handleCreate} className={`mt-4 grid gap-3 p-5 sm:grid-cols-2 ${panelCardClass}`}>
         <input
           required
           value={createForm.name}
@@ -214,7 +212,7 @@ export default function SuperGiftTemplates() {
       ) : (
         <ul className="mt-8 space-y-4">
           {filtered.map((template) => (
-            <li key={template.id} className="rounded-2xl border border-brand-primary-soft p-5">
+            <li key={template.id} className={`p-5 ${panelCardClass}`}>
               {editingId === template.id ? (
                 <form onSubmit={(e) => handleUpdate(e, template.id)} className="grid gap-3 sm:grid-cols-2">
                   <input

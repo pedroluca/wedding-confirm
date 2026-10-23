@@ -18,6 +18,7 @@ import { useAdminAuth } from '../../lib/adminAuthContext'
 import { useAdminEvent } from '../../lib/adminEventContext'
 import { StatusBadge } from '../../components/StatusBadge'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
+import { PageHeader } from '../../components/panel/ui'
 import { giftsViewsTitle } from '../../lib/giftsViews'
 import { GUEST_ROLE_STYLES, guestRoleOptions } from '../../lib/guestRoles'
 import { buildShareMessage, resolveShareTemplate } from '../../lib/shareMessage'
@@ -330,11 +331,11 @@ export default function AdminGuests() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-[#3f3450]">Pessoas e relacionados</h1>
-      <p className="mt-1 text-sm text-[#8b7a9c]">
-        Cada convidado titular recebe um link próprio para confirmar a presença dele e de seus relacionados.
-      </p>
-      <p className="mt-2 text-sm font-medium text-brand-primary">
+      <PageHeader
+        title="Pessoas e relacionados"
+        description="Cada convidado titular recebe um link próprio para confirmar a presença dele e de seus relacionados."
+      />
+      <p className="mt-3 text-sm font-medium text-brand-primary">
         {totalTitulares} {totalTitulares === 1 ? 'convite' : 'convites'} · {totalPessoas}{' '}
         {totalPessoas === 1 ? 'pessoa no total' : 'pessoas no total'}
         {totalViewedGifts > 0 && (
