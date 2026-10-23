@@ -122,7 +122,9 @@ CREATE TABLE app_settings (     -- parâmetros editáveis no super
   - `pix_key` não sai no evento público.
 - **Convidados:**
   - **Bloqueio:** `POST /admin/guests` e `POST /admin/guests/{id}/dependents` checam o teto e devolvem 422 `guest_limit` quando cheio.
-  - **Uso atual:** `GET /admin/event` passa a mandar `guest_usage: { count, limit, cap }`, para o aviso no admin.
+  - **Faixa no admin:** o evento do admin (e do super) passa a mandar `guest_limit` e `guest_cap`, já considerando o plano (null = sem limite). A contagem fica com a tela Pessoas, que já tem a lista e atualiza a cada cadastro ou remoção.
+  - **Corrida:** o cadastro roda numa transação com `FOR UPDATE` no evento, então dois cadastros ao mesmo tempo não passam juntos do teto.
+  - **Entrar como admin:** o super também respeita o teto. Para passar dele, muda a faixa.
 - **Admins:** só o super cria admins, então `admin_limit` é **informativo**. Serve pro preço e pra tela mostrar "2 de 2 admins", sem bloquear o super.
 - **Ilimitado:** ignora todos os limites e liga tudo.
 - **Compatibilidade:** os campos novos são só acrescentados nas respostas, e o front antigo ignora. Os valores padrão (Padrão, presentes ligados, sem limite) mantêm tudo como hoje até alguém mudar.
@@ -195,7 +197,7 @@ Cada fase vai separada, com testes no banco dev e o deploy na ordem migração �
 > Por que primeiro: o Ilimitado protege o casamento **antes** de existir qualquer limite no sistema.
 
 ### Fase 5: faixa de convidados
-1. Teto com tolerância na API (422 `guest_limit`) e `guest_usage` no `GET /admin/event`.
+1. Teto com tolerância na API (422 `guest_limit`) e `guest_limit`/`guest_cap` no evento do admin.
 2. Barra de uso e avisos em Pessoas, com o botão de WhatsApp no teto.
 3. Selo "acima da faixa" na lista e no dashboard do super.
 
@@ -218,8 +220,8 @@ Cada fase vai separada, com testes no banco dev e o deploy na ordem migração �
 
 Para responder antes da fase em que cada uma entra:
 
-1. **Tolerância:** 20% para todas as faixas? Arredondando para cima (50 → 60, 100 → 120, 75 → 90)? *(Fase 5)*
-2. **O que conta como convidado:** pessoas (titulares + relacionados), como sugerido, ou convites? *(Fase 5)*
+1. **Tolerância:** 20% para todas as faixas? Arredondando para cima (50 → 60, 100 → 120, 75 → 90)? *(Fase 5: adotado assim, no config `limits.guest_tolerance_percent`.)*
+2. **O que conta como convidado:** pessoas (titulares + relacionados), como sugerido, ou convites? *(Fase 5: adotado pessoas.)*
 3. **Admins incluídos no Padrão:** sugestão de 2 (um casal). No Premium, mais? *(Fase 6)*
 4. **Faixas e valores:** quais faixas (ex: 50, 100, 150, 200, 300) e o que fazer acima da última ("sob consulta" no simulador)? *(Fase 6)*
 5. **Simulador público:** mostrar o valor exato ou "a partir de R$ X"? *(Fase 7)*
