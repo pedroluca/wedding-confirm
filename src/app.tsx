@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useParams } from 'react-router-dom'
 import Home from './pages/Home'
 import EventLayout from './pages/EventLayout'
 import EventHome from './pages/EventHome'
@@ -15,11 +15,18 @@ import AdminGuests from './pages/admin/AdminGuests'
 import AdminGifts from './pages/admin/AdminGifts'
 import AdminSettings from './pages/admin/AdminSettings'
 import SuperAdminLayout from './pages/super/SuperAdminLayout'
+import SuperDashboard from './pages/super/SuperDashboard'
 import SuperEventList from './pages/super/SuperEventList'
 import SuperEventCreate from './pages/super/SuperEventCreate'
-import SuperEventEdit from './pages/super/SuperEventEdit'
-import SuperEventAdmins from './pages/super/SuperEventAdmins'
+import SuperEventDetail from './pages/super/SuperEventDetail'
 import SuperGiftTemplates from './pages/super/SuperGiftTemplates'
+import SuperPricing from './pages/super/SuperPricing'
+
+// Endereço antigo da tela de admins do evento, hoje uma aba da página do evento.
+function EventAdminsRedirect() {
+  const { eventId = '' } = useParams()
+  return <Navigate to={`/super/eventos/${eventId}?aba=admins`} replace />
+}
 
 function App() {
   return (
@@ -38,12 +45,13 @@ function App() {
       </Route>
 
       <Route path="/super" element={<SuperAdminLayout />}>
-        <Route index element={<Navigate to="eventos" replace />} />
+        <Route index element={<SuperDashboard />} />
         <Route path="eventos" element={<SuperEventList />} />
         <Route path="eventos/novo" element={<SuperEventCreate />} />
-        <Route path="eventos/:eventId" element={<SuperEventEdit />} />
-        <Route path="eventos/:eventId/admins" element={<SuperEventAdmins />} />
+        <Route path="eventos/:eventId" element={<SuperEventDetail />} />
+        <Route path="eventos/:eventId/admins" element={<EventAdminsRedirect />} />
         <Route path="presentes-sugeridos" element={<SuperGiftTemplates />} />
+        <Route path="precos" element={<SuperPricing />} />
       </Route>
 
       <Route path="/:eventSlug" element={<EventLayout />}>

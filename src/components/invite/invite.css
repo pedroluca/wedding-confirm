@@ -1,10 +1,11 @@
 /*
- * Convite de casamento: envelope com selo de cera (Envelope.tsx) e tela
- * interna (InviteContent.tsx). Tudo em CSS puro, derivado da cor do evento
- * (--color-brand-primary, sobrescrita em runtime pelo EventLayout).
+ * Convite: envelopes com selo de cera (Envelope.tsx = carta, GateEnvelope.tsx
+ * = abertura central) e tela interna (InviteContent.tsx). Tudo em CSS puro,
+ * derivado da cor do evento (--color-brand-primary, sobrescrita em runtime
+ * pelo EventLayout).
  *
- * Linha do tempo da abertura (classe .is-opening na cena), ~2,5s no total
- * — OPEN_DURATION_MS em WeddingInvite.tsx precisa acompanhar:
+ * Linha do tempo da carta (classe .is-opening na cena), ~2,5s no total
+ * — OPEN_DURATION_MS em lib/inviteStyles.ts precisa acompanhar:
  *   0ms     nomes do casal somem (450ms); selo racha e as duas metades caem (520ms)
  *   320ms   aba de cima gira e abre (750ms)
  *   1000ms  carta sobe para fora do envelope (900ms)
@@ -55,7 +56,7 @@
 
 .envelope-stage {
   position: relative;
-  width: min(86vw, 440px);
+  width: min(86vw, 480px);
   aspect-ratio: 7 / 5;
 }
 
@@ -125,6 +126,7 @@
   border-radius: 3px;
   background: #fffdf9;
   box-shadow: 0 1px 3px rgb(63 52 80 / 0.12);
+  container-type: inline-size;
 }
 
 .envelope-letter::before {
@@ -188,7 +190,7 @@
   left: 50%;
   top: 55%;
   z-index: 40;
-  width: 26%;
+  width: 30%;
   aspect-ratio: 1;
   transform: translate(-50%, -50%);
   filter: drop-shadow(0 3px 3px rgb(40 20 30 / 0.35));
@@ -377,6 +379,324 @@
     opacity: 0;
     transform: scale(1.08);
   }
+}
+
+/* ---------- Abertura central: "Portas" e "Vertical" (GateEnvelope.tsx) ----------
+ *
+ * Mesma linha do tempo de 2,5s da carta, com o mesmo começo (nomes somem,
+ * selo racha) e o mesmo fim (.envelope-scene.is-opening, zoom + fade):
+ *   300ms   as duas abas giram para fora (900ms)
+ *   1050ms  envelope inteiro (cartão + abas abertas) vem para a frente (800ms)
+ */
+
+.gate-body,
+.gate-card,
+.gate-door,
+.gate-door-face,
+.gate-door-liner {
+  position: absolute;
+  display: block;
+}
+
+.gate-body {
+  inset: 0;
+}
+
+/* 1px menor que as abas em cada lado: com zoom de tela fracionado (125%,
+   150%) as abas, que são camadas 3D, e o cartão arredondam pra pixels
+   diferentes, e a borda do cartão aparecia pra fora da aba fechada. */
+.gate-card {
+  inset: 1px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: #fffdf9;
+  box-shadow: 0 22px 44px -22px rgb(63 52 80 / 0.45);
+  container-type: inline-size;
+}
+
+/* Nomes no cartão (EnvelopeCardNames): em cqw pra caber do celular ao
+   desktop; o px antes é o tamanho em navegador sem container query. As
+   fontes de caligrafia são mais miúdas e pedem um tamanho maior. */
+.envelope-card-names {
+  position: relative;
+  padding: 0 12%;
+  font-size: 22px;
+  font-size: 6.5cqw;
+  line-height: 1.1;
+  text-align: center;
+  text-wrap: balance;
+}
+
+.envelope-card-names.is-script {
+  font-size: 32px;
+  font-size: 9.5cqw;
+  line-height: 1.05;
+}
+
+.gate-card::before {
+  content: '';
+  position: absolute;
+  inset: 7%;
+  border: 1px solid color-mix(in srgb, var(--color-brand-primary) 40%, transparent);
+  outline: 1px solid color-mix(in srgb, var(--color-brand-primary) 18%, transparent);
+  outline-offset: 3px;
+}
+
+.gate-door {
+  z-index: 30;
+  transform-style: preserve-3d;
+}
+
+.gate-door-face,
+.gate-door-liner {
+  inset: 0;
+  border-radius: inherit;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+.gate-door-face {
+  background: linear-gradient(
+    to bottom,
+    var(--env-paper),
+    color-mix(in srgb, var(--env-paper) 94%, #3f3450)
+  );
+}
+
+/* Metade da moldura em cada aba: as duas formam um retângulo fechado. */
+.gate-door-face::before {
+  content: '';
+  position: absolute;
+  border: 1px solid color-mix(in srgb, var(--color-brand-primary) 35%, transparent);
+}
+
+.gate-door-liner {
+  background:
+    repeating-linear-gradient(
+      45deg,
+      transparent 0 6px,
+      color-mix(in srgb, #ffffff 35%, transparent) 6px 7px
+    ),
+    var(--env-liner);
+}
+
+/* Portas: abas esquerda/direita, dobradiça nas bordas de fora. */
+.gate-horizontal .gate-door {
+  top: 0;
+  bottom: 0;
+  width: 50%;
+}
+
+/* A primeira aba passa 1px da metade: as duas se sobrepõem na emenda, senão
+   o cartão branco de baixo aparece como um fio pela borda suavizada. */
+.gate-horizontal .gate-door-start {
+  width: calc(50% + 1px);
+  left: 0;
+  border-radius: 6px 0 0 6px;
+  transform-origin: 0 50%;
+  transform: perspective(1100px) rotateY(0deg);
+}
+
+.gate-horizontal .gate-door-end {
+  right: 0;
+  border-radius: 0 6px 6px 0;
+  transform-origin: 100% 50%;
+  transform: perspective(1100px) rotateY(0deg);
+}
+
+.gate-horizontal .gate-door-liner {
+  transform: rotateY(180deg);
+}
+
+.gate-horizontal .gate-door-start .gate-door-face {
+  box-shadow: inset -10px 0 12px -10px rgb(63 52 80 / 0.25);
+}
+
+.gate-horizontal .gate-door-end .gate-door-face {
+  box-shadow: inset 10px 0 12px -10px rgb(63 52 80 / 0.25);
+}
+
+.gate-horizontal .gate-door-start .gate-door-face::before {
+  inset: 8% 0 8% 12%;
+  border-right: 0;
+}
+
+.gate-horizontal .gate-door-end .gate-door-face::before {
+  inset: 8% 12% 8% 0;
+  border-left: 0;
+}
+
+/* Vertical: abas de cima/de baixo, dobradiça nas bordas de fora. */
+.gate-vertical .gate-door {
+  left: 0;
+  right: 0;
+  height: 50%;
+}
+
+.gate-vertical .gate-door-start {
+  height: calc(50% + 1px);
+  top: 0;
+  border-radius: 6px 6px 0 0;
+  transform-origin: 50% 0;
+  transform: perspective(1100px) rotateX(0deg);
+}
+
+.gate-vertical .gate-door-end {
+  bottom: 0;
+  border-radius: 0 0 6px 6px;
+  transform-origin: 50% 100%;
+  transform: perspective(1100px) rotateX(0deg);
+}
+
+.gate-vertical .gate-door-liner {
+  transform: rotateX(180deg);
+}
+
+.gate-vertical .gate-door-start .gate-door-face {
+  box-shadow: inset 0 -10px 12px -10px rgb(63 52 80 / 0.25);
+}
+
+.gate-vertical .gate-door-end .gate-door-face {
+  box-shadow: inset 0 10px 12px -10px rgb(63 52 80 / 0.25);
+}
+
+.gate-vertical .gate-door-start .gate-door-face::before {
+  inset: 16% 6% 0 6%;
+  border-bottom: 0;
+}
+
+.gate-vertical .gate-door-end .gate-door-face::before {
+  inset: 0 6% 16% 6%;
+  border-top: 0;
+}
+
+/* O selo fica bem na emenda das abas. */
+.gate .envelope-seal {
+  top: 50%;
+}
+
+/* Rachadura horizontal do selo (Vertical), equivalente à das metades esquerda/direita. */
+.seal-half-top {
+  clip-path: polygon(0 0, 100% 0, 100% 52%, 76% 46%, 52% 55%, 28% 47%, 0 53%);
+}
+
+.seal-half-bottom {
+  clip-path: polygon(0 53%, 28% 47%, 52% 55%, 76% 46%, 100% 52%, 100% 100%, 0 100%);
+}
+
+.is-opening .seal-half-top {
+  animation: seal-crack-top 520ms cubic-bezier(0.4, 0, 0.6, 1) forwards;
+}
+
+.is-opening .seal-half-bottom {
+  animation: seal-crack-bottom 520ms cubic-bezier(0.4, 0, 0.6, 1) forwards;
+}
+
+.is-opening .gate-horizontal .gate-door-start {
+  animation: gate-open-left 900ms cubic-bezier(0.45, 0, 0.2, 1) 300ms forwards;
+}
+
+.is-opening .gate-horizontal .gate-door-end {
+  animation: gate-open-right 900ms cubic-bezier(0.45, 0, 0.2, 1) 300ms forwards;
+}
+
+.is-opening .gate-vertical .gate-door-start {
+  animation: gate-open-up 900ms cubic-bezier(0.45, 0, 0.2, 1) 300ms forwards;
+}
+
+.is-opening .gate-vertical .gate-door-end {
+  animation: gate-open-down 900ms cubic-bezier(0.45, 0, 0.2, 1) 300ms forwards;
+}
+
+/* Aproxima cartão e abas juntos (só o cartão crescendo descolava das abas). */
+.is-opening .gate-body {
+  animation: gate-forward 800ms cubic-bezier(0.3, 0.7, 0.2, 1) 1050ms forwards;
+}
+
+@keyframes seal-crack-top {
+  0% {
+    transform: none;
+    opacity: 1;
+  }
+  25% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-22%, -30%) rotate(-18deg);
+    opacity: 0;
+  }
+}
+
+@keyframes seal-crack-bottom {
+  0% {
+    transform: none;
+    opacity: 1;
+  }
+  25% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(22%, 38%) rotate(16deg);
+    opacity: 0;
+  }
+}
+
+/* As abas giram na direção de quem está olhando e passam de 90°, mostrando o forro. */
+@keyframes gate-open-left {
+  to {
+    transform: perspective(1100px) rotateY(-150deg);
+  }
+}
+
+@keyframes gate-open-right {
+  to {
+    transform: perspective(1100px) rotateY(150deg);
+  }
+}
+
+@keyframes gate-open-up {
+  to {
+    transform: perspective(1100px) rotateX(150deg);
+  }
+}
+
+@keyframes gate-open-down {
+  to {
+    transform: perspective(1100px) rotateX(-150deg);
+  }
+}
+
+@keyframes gate-forward {
+  to {
+    transform: scale(1.08);
+  }
+}
+
+/* ---------- Miniatura (seletor de abertura nas configurações) ---------- */
+
+/* A cena de verdade, sem os nomes e presa ao quadro da miniatura em vez da
+   tela. O envelope fica embaixo pra sobrar espaço pra carta subir. */
+.envelope-scene.is-preview {
+  position: absolute;
+  inset: 0;
+  z-index: auto;
+  justify-content: flex-end;
+  padding: 0 0 56px;
+  background: none;
+}
+
+/* Na abertura central nada sobe: centraliza, que as abas abrem pros dois lados. */
+.envelope-scene.is-preview:has(.gate) {
+  justify-content: center;
+  padding: 0;
+}
+
+.is-preview .envelope-stage {
+  width: 440px;
 }
 
 /* ---------- Capa (foto do casal) ---------- */

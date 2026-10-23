@@ -19,7 +19,7 @@ function useNow(intervalMs: number): number {
   return now
 }
 
-/** Dias/horas/min/seg até o casamento; "É hoje!" no dia e some depois dele. */
+/** Dias/horas/min/seg até o evento; "É hoje!" no dia e some depois dele. */
 export function Countdown({ date }: { date: Date }) {
   const now = useNow(SECOND)
   const diff = date.getTime() - now

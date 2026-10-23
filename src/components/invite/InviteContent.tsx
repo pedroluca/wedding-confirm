@@ -1,10 +1,24 @@
 import type { ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Church, CircleCheck, Gift, Heart, MapPin, Shirt, Wine } from 'lucide-react'
+import {
+  Church,
+  CircleCheck,
+  Gift,
+  GraduationCap,
+  Heart,
+  MapPin,
+  PartyPopper,
+  Shirt,
+  Wine,
+  type LucideIcon,
+} from 'lucide-react'
 import { DevCredit } from '../DevCredit'
 import { useEvent } from '../../lib/eventContext'
 import { NAME_FONT_CLASSES_COMPACT, parseMysqlDate } from '../../lib/eventFormat'
-import type { GuestInviteResponse } from '../../types'
+import { EVENT_TYPES, hasTwoHosts } from '../../lib/eventTypes'
+import { guestRoleOptions } from '../../lib/guestRoles'
+import { giftsEnabled } from '../../lib/plans'
+import type { EventType, GuestInviteResponse } from '../../types'
 import { AddToCalendar } from './AddToCalendar'
 import { Countdown } from './Countdown'
 import { CoverHero } from './CoverHero'
@@ -15,6 +29,14 @@ import { WaxSeal } from './WaxSeal'
 const listFormatter = new Intl.ListFormat('pt-BR', { style: 'long', type: 'conjunction' })
 
 const sectionLabelClass = 'text-xs font-semibold tracking-[0.3em] text-brand-primary uppercase'
+
+// Ícones dos dois locais (EVENT_TYPES[...].venueLabels), na mesma ordem.
+const VENUE_ICONS: Record<EventType, [LucideIcon, LucideIcon]> = {
+  wedding: [Church, Wine],
+  birthday: [MapPin, PartyPopper],
+  graduation: [GraduationCap, PartyPopper],
+  other: [MapPin, PartyPopper],
+}
 
 function Ornament() {
   return (
@@ -64,7 +86,7 @@ function DetailCard({
   )
 }
 
-/** Tela interna do convite de casamento (depois de abrir o envelope). */
+/** Tela interna do convite (depois de abrir o envelope, ou direto no estilo "Direto"). */
 export function InviteContent({
   data,
   eventSlug,
@@ -78,6 +100,18 @@ export function InviteContent({
   const navigate = useNavigate()
   const date = event.event_date ? parseMysqlDate(event.event_date) : null
   const isGroup = data.has_dependents
+  const typeProfile = EVENT_TYPES[event.event_type]
+  const [venueLabel, secondVenueLabel] = typeProfile.venueLabels
+  const [VenueIcon, SecondVenueIcon] = VENUE_ICONS[event.event_type]
+  const twoHosts = hasTwoHosts(event)
+  // Papel salvo num tipo que não usa papéis (ex: evento que mudou de tipo) não aparece.
+  const showRole = data.titular.role !== 'convidado' && guestRoleOptions(event.event_type) !== null
+  // Ligadas a menos que o admin desligue (undefined = API anterior aos campos).
+  const showCountdown = event.show_countdown !== false
+  const showCalendar = event.show_calendar !== false
+  const showGifts = giftsEnabled(event)
+  // O Premium tira o "Feito com Presenzo"; undefined = API anterior ao campo.
+  const showCredit = event.show_credit !== false
 
   const answered = data.members.every((member) => member.status !== 'pendente')
   const confirmedCount = data.members.filter((member) => member.status === 'confirmado').length
@@ -93,13 +127,15 @@ export function InviteContent({
             {listFormatter.format(data.members.map((member) => member.name))}
           </p>
           <p className="mt-4 font-serif text-lg text-[#6b5d80] italic">
-            Temos a alegria de convidar {isGroup ? 'vocês' : 'você'} para celebrar o nosso casamento.
+            {`${twoHosts ? 'Temos' : 'Tenho'} a alegria de convidar `}
+            {isGroup ? 'vocês' : 'você'}
+            {` para ${typeProfile.inviteOccasion[twoHosts ? 1 : 0]}.`}
           </p>
         </Reveal>
 
-        {data.titular.role !== 'convidado' && (
+        {showRole && (
           <Reveal>
-            <RoleCard role={data.titular.role} isGroup={isGroup} />
+            <RoleCard role={data.titular.role} isGroup={isGroup} twoHosts={twoHosts} />
           </Reveal>
         )}
 
@@ -122,7 +158,7 @@ export function InviteContent({
 
         <Ornament />
 
-        {date && (
+        {date && showCountdown && (
           <Reveal>
             <Countdown date={date} />
           </Reveal>
@@ -132,8 +168,8 @@ export function InviteContent({
           <Reveal className="space-y-3">
             {(event.venue_name || event.address) && (
               <DetailCard
-                icon={<Church size={20} />}
-                label="Cerimônia"
+                icon={<VenueIcon size={20} />}
+                label={venueLabel}
                 title={event.venue_name ?? event.address ?? ''}
                 subtitle={event.venue_name ? event.address : null}
                 mapsUrl={event.maps_url}
@@ -141,8 +177,8 @@ export function InviteContent({
             )}
             {event.venue_name_secondary && (
               <DetailCard
-                icon={<Wine size={20} />}
-                label="Recepção"
+                icon={<SecondVenueIcon size={20} />}
+                label={secondVenueLabel}
                 title={event.venue_name_secondary}
                 mapsUrl={event.maps_url_secondary}
               />
@@ -151,7 +187,7 @@ export function InviteContent({
           </Reveal>
         )}
 
-        {date && (
+        {date && showCalendar && (
           <Reveal>
             <AddToCalendar date={date} />
           </Reveal>
@@ -184,14 +220,16 @@ export function InviteContent({
           >
             {answered ? 'Alterar confirmação' : 'Confirmar presença'}
           </button>
-          <Link
-            to={`/${eventSlug}/${guestSlug}/presentes`}
-            state={{ from: 'invite' }}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-full border border-brand-primary-soft bg-white/70 px-8 py-3.5 font-semibold text-brand-primary transition hover:bg-brand-primary-soft"
-          >
-            <Gift size={18} />
-            Lista de presentes
-          </Link>
+          {showGifts && (
+            <Link
+              to={`/${eventSlug}/${guestSlug}/presentes`}
+              state={{ from: 'invite' }}
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-full border border-brand-primary-soft bg-white/70 px-8 py-3.5 font-semibold text-brand-primary transition hover:bg-brand-primary-soft"
+            >
+              <Gift size={18} />
+              Lista de presentes
+            </Link>
+          )}
         </Reveal>
 
         <footer className="pt-4 text-center">
@@ -200,9 +238,11 @@ export function InviteContent({
             {event.host_name}
             {event.host_name_secondary && ` & ${event.host_name_secondary}`}
           </p>
-          <p className="mt-12 text-[11px] tracking-wide">
-            <DevCredit />
-          </p>
+          {showCredit && (
+            <p className="mt-12 text-[11px] tracking-wide">
+              <DevCredit />
+            </p>
+          )}
         </footer>
       </main>
     </div>

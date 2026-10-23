@@ -13,13 +13,17 @@ import {
   Users,
   X,
 } from 'lucide-react'
-import { api } from '../../lib/api'
+import { api, ApiError } from '../../lib/api'
 import { useAdminAuth } from '../../lib/adminAuthContext'
 import { useAdminEvent } from '../../lib/adminEventContext'
+import { formatHostNames } from '../../lib/eventTypes'
+import { giftsEnabled, guestBand } from '../../lib/plans'
 import { StatusBadge } from '../../components/StatusBadge'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
+import { GuestBandNotice } from '../../components/panel/GuestBand'
+import { PageHeader } from '../../components/panel/ui'
 import { giftsViewsTitle } from '../../lib/giftsViews'
-import { GUEST_ROLE_OPTIONS, GUEST_ROLE_STYLES } from '../../lib/guestRoles'
+import { GUEST_ROLE_STYLES, guestRoleOptions } from '../../lib/guestRoles'
 import { buildShareMessage, resolveShareTemplate } from '../../lib/shareMessage'
 import type { AdminDependent, AdminGuest, GuestRole, GuestStatus } from '../../types'
 
@@ -108,8 +112,8 @@ export default function AdminGuests() {
   const [loadError, setLoadError] = useState(false)
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('todos')
-  // Papel (padrinho, pais...) só faz sentido em casamento.
-  const isWedding = event.event_type === 'wedding'
+  // Papel (padrinho, pais...) só existe em alguns tipos de evento (casamento, formatura).
+  const roleOptions = guestRoleOptions(event.event_type)
 
   const [newName, setNewName] = useState('')
   const [newRole, setNewRole] = useState<GuestRole>('convidado')
@@ -140,6 +144,10 @@ export default function AdminGuests() {
       .finally(() => setLoading(false))
   }, [token])
 
+  // Teto da faixa atingido (inclusive por outro admin, com a lista daqui desatualizada).
+  const guestLimitMessage = (err: unknown) =>
+    err instanceof ApiError && err.code === 'guest_limit' ? err.message : null
+
   const showError = (message: string) => {
     window.clearTimeout(toastTimer.current)
     setToast(message)
@@ -165,8 +173,8 @@ export default function AdminGuests() {
       setRoleFilter('todos')
       setHighlightId(guest.id)
       setTimeout(() => setHighlightId((current) => (current === guest.id ? null : current)), 2500)
-    } catch {
-      showError('Não foi possível cadastrar o convidado.')
+    } catch (err) {
+      showError(guestLimitMessage(err) ?? 'Não foi possível cadastrar o convidado.')
     } finally {
       setCreating(false)
       newNameRef.current?.focus()
@@ -202,8 +210,8 @@ export default function AdminGuests() {
       )
       // O campo continua aberto e focado para emendar o próximo relacionado.
       setDependentDraft('')
-    } catch {
-      showError('Não foi possível adicionar o relacionado.')
+    } catch (err) {
+      showError(guestLimitMessage(err) ?? 'Não foi possível adicionar o relacionado.')
     } finally {
       setAddingDependent(false)
     }
@@ -298,7 +306,13 @@ export default function AdminGuests() {
 
   const totalTitulares = guests.length
   const totalPessoas = guests.reduce((total, guest) => total + 1 + guest.dependents.length, 0)
-  const totalViewedGifts = guests.filter((guest) => guest.gifts_views > 0).length
+  // No teto da faixa contratada o cadastro trava (o backend também bloqueia).
+  const band = guestBand(totalPessoas, event)
+  const bandFull = band?.state === 'full'
+  const bandFullTitle = bandFull ? 'Limite da faixa de convidados atingido' : undefined
+  // Sem a lista de presentes no plano, os acessos a ela também saem da tela.
+  const showGifts = giftsEnabled(event)
+  const totalViewedGifts = showGifts ? guests.filter((guest) => guest.gifts_views > 0).length : 0
 
   const query = normalize(search)
   const activeRoleFilter = ROLE_FILTERS.find((filter) => filter.value === roleFilter)
@@ -330,11 +344,11 @@ export default function AdminGuests() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-[#3f3450]">Pessoas e relacionados</h1>
-      <p className="mt-1 text-sm text-[#8b7a9c]">
-        Cada convidado titular recebe um link próprio para confirmar a presença dele e de seus relacionados.
-      </p>
-      <p className="mt-2 text-sm font-medium text-brand-primary">
+      <PageHeader
+        title="Pessoas e relacionados"
+        description="Cada convidado titular recebe um link próprio para confirmar a presença dele e de seus relacionados."
+      />
+      <p className="mt-3 text-sm font-medium text-brand-primary">
         {totalTitulares} {totalTitulares === 1 ? 'convite' : 'convites'} · {totalPessoas}{' '}
         {totalPessoas === 1 ? 'pessoa no total' : 'pessoas no total'}
         {totalViewedGifts > 0 && (
@@ -344,6 +358,13 @@ export default function AdminGuests() {
           </span>
         )}
       </p>
+
+      {band && !loading && (
+        <GuestBandNotice
+          band={band}
+          contactMessage={`Olá! Quero mudar a faixa de convidados do evento ${formatHostNames(event)} (${window.location.origin}/${event.slug}).`}
+        />
+      )}
 
       <form
         onSubmit={handleCreate}
@@ -363,14 +384,14 @@ export default function AdminGuests() {
             autoComplete="off"
             className="min-w-0 flex-1 rounded-xl border border-brand-primary-soft bg-white px-4 py-2.5 outline-none focus:border-brand-primary"
           />
-          {isWedding && (
+          {roleOptions && (
             <select
               value={newRole}
               onChange={(e) => setNewRole(e.target.value as GuestRole)}
               aria-label="Papel do convidado"
               className="cursor-pointer rounded-xl border border-brand-primary-soft bg-white px-3 py-2.5 text-sm text-[#3f3450] outline-none focus:border-brand-primary"
             >
-              {GUEST_ROLE_OPTIONS.map((option) => (
+              {roleOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
@@ -379,7 +400,8 @@ export default function AdminGuests() {
           )}
           <button
             type="submit"
-            disabled={creating || !newName.trim()}
+            disabled={creating || !newName.trim() || bandFull}
+            title={bandFullTitle}
             className="cursor-pointer inline-flex items-center justify-center gap-2 rounded-full bg-brand-primary px-6 py-2.5 font-semibold text-white transition hover:bg-brand-primary-hover disabled:cursor-default disabled:opacity-60"
           >
             <Plus size={18} />
@@ -429,7 +451,7 @@ export default function AdminGuests() {
             />
           </div>
 
-          {isWedding && roleFilterCounts.length > 0 && (
+          {roleOptions && roleFilterCounts.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Filtrar por papel">
               {[{ value: 'todos' as const, label: 'Todos', count: guests.length }, ...roleFilterCounts].map(
                 (filter) => (
@@ -543,22 +565,22 @@ export default function AdminGuests() {
                               </>
                             )}
                           </button>
-                          {isWedding && (
+                          {roleOptions && (
                             <select
                               value={guest.role}
                               onChange={(e) => handleRoleChange(guest.id, e.target.value as GuestRole)}
                               aria-label={`Papel de ${guest.name}`}
-                              title="Papel no casamento (aparece em destaque no convite)"
+                              title="Papel no evento (aparece em destaque no convite)"
                               className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium outline-none focus:border-brand-primary ${GUEST_ROLE_STYLES[guest.role]}`}
                             >
-                              {GUEST_ROLE_OPTIONS.map((option) => (
+                              {roleOptions.map((option) => (
                                 <option key={option.value} value={option.value}>
                                   {option.label}
                                 </option>
                               ))}
                             </select>
                           )}
-                          {guest.gifts_views > 0 && (
+                          {showGifts && guest.gifts_views > 0 && (
                             <span
                               title={giftsViewsTitle(guest)}
                               className="inline-flex items-center gap-1 text-xs text-[#8b7a9c]"
@@ -665,7 +687,8 @@ export default function AdminGuests() {
                         />
                         <button
                           type="submit"
-                          disabled={addingDependent || !dependentDraft.trim()}
+                          disabled={addingDependent || !dependentDraft.trim() || bandFull}
+                          title={bandFullTitle}
                           className="cursor-pointer rounded-full bg-brand-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-primary-hover disabled:cursor-default disabled:opacity-60"
                         >
                           {addingDependent ? 'Adicionando...' : 'Adicionar'}
@@ -684,7 +707,9 @@ export default function AdminGuests() {
                       <button
                         type="button"
                         onClick={() => openDependentForm(guest.id)}
-                        className="cursor-pointer mt-2 -ml-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium text-brand-primary transition hover:bg-brand-primary-soft"
+                        disabled={bandFull}
+                        title={bandFullTitle}
+                        className="cursor-pointer mt-2 -ml-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium text-brand-primary transition hover:bg-brand-primary-soft disabled:cursor-default disabled:opacity-50 disabled:hover:bg-transparent"
                       >
                         <Plus size={16} />
                         Adicionar relacionado

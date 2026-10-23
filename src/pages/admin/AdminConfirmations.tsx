@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Gift } from 'lucide-react'
+import { CircleCheck, CircleX, Clock, Gift } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAdminAuth } from '../../lib/adminAuthContext'
+import { useAdminEvent } from '../../lib/adminEventContext'
 import { formatGiftsLastView, giftsViewsTitle } from '../../lib/giftsViews'
+import { giftsEnabled } from '../../lib/plans'
 import { StatusBadge } from '../../components/StatusBadge'
+import { PageHeader, panelCardClass, StatCard } from '../../components/panel/ui'
 import type { AdminGuest, GuestStatus } from '../../types'
 
 // Os acessos à lista de presentes são do link do convite, então só a linha
@@ -29,6 +32,9 @@ const FILTERS: { key: Filter; label: string }[] = [
 export default function AdminConfirmations() {
   const { session } = useAdminAuth()
   const token = session?.token ?? null
+  // Sem a lista de presentes no plano, as métricas dela também saem da tela.
+  const showGifts = giftsEnabled(useAdminEvent())
+  const filters = showGifts ? FILTERS : FILTERS.filter((f) => f.key !== 'presentes')
   const [guests, setGuests] = useState<AdminGuest[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<Filter>('todos')
@@ -71,14 +77,38 @@ export default function AdminConfirmations() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-[#3f3450]">Lista de presenças</h1>
-      <p className="mt-1 text-sm text-[#8b7a9c]">
-        {counts.confirmado} confirmados · {counts.pendente} pendentes · {counts.recusado} recusados ·{' '}
-        {counts.presentes} {counts.presentes === 1 ? 'convite viu' : 'convites viram'} os presentes
-      </p>
+      <PageHeader
+        title="Lista de presenças"
+        description={
+          showGifts
+            ? 'Quem já respondeu o convite, quem falta e quem abriu a lista de presentes.'
+            : 'Quem já respondeu o convite e quem falta.'
+        }
+      />
+
+      {!loading && (
+        <div className={`mt-8 grid grid-cols-2 gap-3 ${showGifts ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
+          <StatCard
+            label="Confirmados"
+            value={counts.confirmado}
+            hint={`de ${rows.length} ${rows.length === 1 ? 'pessoa' : 'pessoas'}`}
+            icon={CircleCheck}
+          />
+          <StatCard label="Pendentes" value={counts.pendente} icon={Clock} />
+          <StatCard label="Recusados" value={counts.recusado} icon={CircleX} />
+          {showGifts && (
+            <StatCard
+              label="Viram os presentes"
+              value={counts.presentes}
+              hint={`de ${guests.length} ${guests.length === 1 ? 'convite' : 'convites'}`}
+              icon={Gift}
+            />
+          )}
+        </div>
+      )}
 
       <div className="mt-6 flex flex-wrap gap-2">
-        {FILTERS.map((f) => (
+        {filters.map((f) => (
           <button
             key={f.key}
             type="button"
@@ -98,48 +128,52 @@ export default function AdminConfirmations() {
       {loading ? (
         <p className="mt-8 text-[#8b7a9c]">Carregando...</p>
       ) : (
-        <div className="mt-6 overflow-x-auto rounded-2xl border border-brand-primary-soft">
+        <div className={`mt-4 overflow-x-auto ${panelCardClass}`}>
           <table className="w-full text-left text-sm">
-            <thead className="bg-brand-primary-soft/60 text-[#3f3450]">
+            <thead className="text-xs tracking-wide text-[#8b7a9c] uppercase">
               <tr>
-                <th className="px-4 py-3">Nome</th>
-                <th className="px-4 py-3">Grupo</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3" title="Quantas vezes o link do convite abriu a lista de presentes">
-                  Presentes
-                </th>
+                <th className="px-4 py-3 font-medium">Nome</th>
+                <th className="px-4 py-3 font-medium">Grupo</th>
+                <th className="px-4 py-3 font-medium">Status</th>
+                {showGifts && (
+                  <th className="px-4 py-3 font-medium" title="Quantas vezes o link do convite abriu a lista de presentes">
+                    Presentes
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
               {filtered.map((row) => (
-                <tr key={row.id} className="border-t border-brand-primary-soft">
+                <tr key={row.id} className="border-t border-[#f3eef5]">
                   <td className="px-4 py-3 text-[#3f3450]">{row.name}</td>
                   <td className="px-4 py-3 text-[#8b7a9c]">{row.group}</td>
                   <td className="px-4 py-3">
                     <StatusBadge status={row.status} />
                   </td>
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    {row.gifts && row.gifts.gifts_views > 0 ? (
-                      <div title={giftsViewsTitle(row.gifts)}>
-                        <span className="inline-flex items-center gap-1.5 font-medium text-brand-primary">
-                          <Gift size={14} aria-hidden />
-                          {row.gifts.gifts_views}x
+                  {showGifts && (
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {row.gifts && row.gifts.gifts_views > 0 ? (
+                        <div title={giftsViewsTitle(row.gifts)}>
+                          <span className="inline-flex items-center gap-1.5 font-medium text-brand-primary">
+                            <Gift size={14} aria-hidden />
+                            {row.gifts.gifts_views}x
+                          </span>
+                          {formatGiftsLastView(row.gifts) && (
+                            <span className="block text-xs text-[#8b7a9c]">{formatGiftsLastView(row.gifts)}</span>
+                          )}
+                        </div>
+                      ) : row.gifts ? (
+                        <span className="text-[#c4b6d1]" aria-label="Não abriu a lista de presentes">
+                          —
                         </span>
-                        {formatGiftsLastView(row.gifts) && (
-                          <span className="block text-xs text-[#8b7a9c]">{formatGiftsLastView(row.gifts)}</span>
-                        )}
-                      </div>
-                    ) : row.gifts ? (
-                      <span className="text-[#c4b6d1]" aria-label="Não abriu a lista de presentes">
-                        —
-                      </span>
-                    ) : null}
-                  </td>
+                      ) : null}
+                    </td>
+                  )}
                 </tr>
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-4 py-6 text-center text-[#8b7a9c]">
+                  <td colSpan={showGifts ? 4 : 3} className="px-4 py-6 text-center text-[#8b7a9c]">
                     {filter === 'presentes' ? 'Ninguém abriu a lista de presentes ainda.' : 'Nenhum registro.'}
                   </td>
                 </tr>

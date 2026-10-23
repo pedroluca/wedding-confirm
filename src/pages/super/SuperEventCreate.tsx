@@ -1,13 +1,32 @@
-import { useRef, useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, type FormEvent } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { ArrowLeft, CalendarDays, Crown, Heart, Shirt, UserPlus } from 'lucide-react'
 import { api, ApiError } from '../../lib/api'
 import { useAdminAuth } from '../../lib/adminAuthContext'
-import type { EventType, NameFont, SuperEvent } from '../../types'
+import { NAME_FONT_OPTIONS } from '../../lib/eventFormat'
+import { EVENT_TYPE_OPTIONS, EVENT_TYPES, eventTypeOptionLabel } from '../../lib/eventTypes'
+import { planGraceDays } from '../../lib/plans'
+import { defaultQuoteRequest, suggestedPriceHint, usePricingSettings } from '../../lib/pricing'
+import {
+  boxClass,
+  boxTitleClass,
+  checkboxLabelClass,
+  fileInputClass,
+  hintClass,
+  inputClass,
+  labelClass,
+  Section,
+} from '../../components/panel/form'
+import { PlanPicker } from '../../components/panel/PlanPicker'
+import { QuoteCalculator } from '../../components/panel/QuoteCalculator'
+import { PageHeader } from '../../components/panel/ui'
+import type { EventPlan, EventType, NameFont, Quote, QuoteRequest, SuperEvent } from '../../types'
 
 type CreateForm = {
   event_type: EventType
   host_name: string
   host_name_secondary: string
+  subtitle: string
   event_date: string
   venue_name: string
   venue_name_secondary: string
@@ -19,20 +38,22 @@ type CreateForm = {
   color_primary: string
   name_font: NameFont
   logo: File | null
+  plan: EventPlan
+  gifts_enabled: boolean
+  guest_limit: string
+  admin_limit: string
+  price_charged: string
+  /** Escolha do orçamento aplicado (a API recalcula e guarda no evento). */
+  quote: QuoteRequest | null
   admin_name: string
   admin_email: string
 }
-
-const NAME_FONT_OPTIONS: { value: NameFont; label: string; fontFamily: string }[] = [
-  { value: 'sans', label: 'Padrão', fontFamily: 'inherit' },
-  { value: 'fleur', label: 'Caligrafia (Fleur De Leah)', fontFamily: "'Fleur De Leah', cursive" },
-  { value: 'pinyon', label: 'Caligrafia (Pinyon Script)', fontFamily: "'Pinyon Script', cursive" },
-]
 
 const EMPTY_FORM: CreateForm = {
   event_type: 'wedding',
   host_name: '',
   host_name_secondary: '',
+  subtitle: '',
   event_date: '',
   venue_name: '',
   venue_name_secondary: '',
@@ -44,6 +65,12 @@ const EMPTY_FORM: CreateForm = {
   color_primary: '#d2afff',
   name_font: 'sans',
   logo: null,
+  plan: 'standard',
+  gifts_enabled: true,
+  guest_limit: '',
+  admin_limit: '',
+  price_charged: '',
+  quote: null,
   admin_name: '',
   admin_email: '',
 }
@@ -53,6 +80,7 @@ function toFormData(form: CreateForm): FormData {
   data.set('event_type', form.event_type)
   data.set('host_name', form.host_name.trim())
   data.set('host_name_secondary', form.host_name_secondary.trim())
+  data.set('subtitle', form.subtitle.trim())
   data.set('event_date', form.event_date)
   data.set('venue_name', form.venue_name.trim())
   data.set('venue_name_secondary', form.venue_name_secondary.trim())
@@ -63,6 +91,15 @@ function toFormData(form: CreateForm): FormData {
   data.set('pix_key', form.pix_key.trim())
   data.set('color_primary', form.color_primary)
   data.set('name_font', form.name_font)
+  data.set('plan', form.plan)
+  data.set('gifts_enabled', form.gifts_enabled ? '1' : '0')
+  // Em branco = sem limite / sem valor.
+  data.set('guest_limit', form.guest_limit)
+  data.set('admin_limit', form.admin_limit)
+  data.set('price_charged', form.price_charged)
+  if (form.quote) {
+    data.set('quote', JSON.stringify({ ...form.quote, event_type: form.event_type }))
+  }
   data.set('admin_name', form.admin_name.trim())
   data.set('admin_email', form.admin_email.trim())
   if (form.logo) {
@@ -78,9 +115,32 @@ export default function SuperEventCreate() {
   const [form, setForm] = useState<CreateForm>(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const fileRef = useRef<HTMLInputElement>(null)
+  const [appliedQuote, setAppliedQuote] = useState<Quote | null>(null)
 
-  const isWedding = form.event_type === 'wedding'
+  const typeProfile = EVENT_TYPES[form.event_type]
+  const [hostLabel, hostSecondaryLabel] = typeProfile.hostLabels
+  const [venueLabel, secondVenueLabel] = typeProfile.venueLabels
+  const [venuePlaceholder, secondVenuePlaceholder] = typeProfile.venuePlaceholders
+  const unlimited = form.plan === 'unlimited'
+  const pricingSettings = usePricingSettings()
+  const graceDays = planGraceDays(form.plan, pricingSettings)
+
+  const update = <K extends keyof CreateForm>(key: K, value: CreateForm[K]) =>
+    setForm((prev) => ({ ...prev, [key]: value }))
+
+  // O orçamento preenche plano, contratado e valor cobrado; tudo continua editável.
+  const applyQuote = (quote: Quote, request: QuoteRequest) => {
+    setForm((prev) => ({
+      ...prev,
+      plan: quote.contract.plan,
+      gifts_enabled: quote.contract.gifts_enabled,
+      guest_limit: quote.contract.guest_limit !== null ? String(quote.contract.guest_limit) : '',
+      admin_limit: String(quote.contract.admin_limit),
+      price_charged: String(quote.total),
+      quote: request,
+    }))
+    setAppliedQuote(quote)
+  }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -98,197 +158,259 @@ export default function SuperEventCreate() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-[#3f3450]">Novo evento</h1>
-      <p className="mt-1 text-sm text-[#8b7a9c]">
-        Cria o evento e o primeiro admin dele — um convite por email será enviado para ele definir a
-        senha.
-      </p>
+      <Link to="/super/eventos" className="inline-flex items-center gap-1.5 text-sm text-[#8b7a9c] hover:text-brand-primary">
+        <ArrowLeft size={15} /> Eventos
+      </Link>
 
-      <form
-        onSubmit={handleSubmit}
-        className="mt-6 grid gap-4 rounded-2xl border border-brand-primary-soft p-5 sm:grid-cols-2"
-      >
-        <label className="text-sm font-medium text-[#3f3450] sm:col-span-2">
-          Tipo de evento
-          <select
-            value={form.event_type}
-            onChange={(e) => setForm((prev) => ({ ...prev, event_type: e.target.value as EventType }))}
-            className="mt-1 w-full rounded-xl border border-brand-primary-soft px-4 py-2 outline-none focus:border-brand-primary"
-          >
-            <option value="wedding">Casamento</option>
-            <option value="birthday">Aniversário</option>
-          </select>
-        </label>
+      <div className="mt-4">
+        <PageHeader
+          title="Novo evento"
+          description="Cria o evento e o primeiro admin dele, que recebe um email pra definir a senha. Foto, música, abertura do convite e o resto da personalização dá pra ajustar depois."
+        />
+      </div>
 
-        <label className="text-sm font-medium text-[#3f3450] sm:col-span-2">
-          {isWedding ? 'Nome de um(a) dos noivos' : 'Nome do aniversariante'}
-          <input
-            required
-            value={form.host_name}
-            onChange={(e) => setForm((prev) => ({ ...prev, host_name: e.target.value }))}
-            className="mt-1 w-full rounded-xl border border-brand-primary-soft px-4 py-2 outline-none focus:border-brand-primary"
-          />
-        </label>
-
-        {isWedding && (
-          <label className="text-sm font-medium text-[#3f3450] sm:col-span-2">
-            Nome do(a) outro(a) noivo(a)
+      <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+        <Section icon={<Heart size={18} />} title="Evento" description="Tipo, nomes e identidade visual.">
+          <label className={`${labelClass} sm:col-span-2`}>
+            Tipo de evento
+            <select
+              value={form.event_type}
+              onChange={(e) => update('event_type', e.target.value as EventType)}
+              className={inputClass}
+            >
+              {EVENT_TYPE_OPTIONS.map((type) => (
+                <option key={type} value={type}>
+                  {eventTypeOptionLabel(type)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={labelClass}>
+            {hostLabel}
+            <input required value={form.host_name} onChange={(e) => update('host_name', e.target.value)} className={inputClass} />
+          </label>
+          <label className={labelClass}>
+            {hostSecondaryLabel}
             <input
               value={form.host_name_secondary}
-              onChange={(e) => setForm((prev) => ({ ...prev, host_name_secondary: e.target.value }))}
-              className="mt-1 w-full rounded-xl border border-brand-primary-soft px-4 py-2 outline-none focus:border-brand-primary"
+              onChange={(e) => update('host_name_secondary', e.target.value)}
+              className={inputClass}
             />
           </label>
-        )}
+          <label className={`${labelClass} sm:col-span-2`}>
+            Subtítulo <span className="font-normal text-[#8b7a9c]">(opcional)</span>
+            <input
+              value={form.subtitle}
+              maxLength={150}
+              onChange={(e) => update('subtitle', e.target.value)}
+              placeholder={typeProfile.subtitlePlaceholder}
+              className={inputClass}
+            />
+          </label>
+          <label className={labelClass}>
+            Fonte do nome
+            <select
+              value={form.name_font}
+              onChange={(e) => update('name_font', e.target.value as NameFont)}
+              className={inputClass}
+            >
+              {NAME_FONT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value} style={{ fontFamily: option.fontFamily }}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={labelClass}>
+            Cor de destaque
+            <span className="mt-1 flex items-center gap-3">
+              <input
+                type="color"
+                value={form.color_primary}
+                onChange={(e) => update('color_primary', e.target.value)}
+                className="h-10 w-16 cursor-pointer rounded-xl border border-brand-primary-soft bg-white px-1 outline-none"
+              />
+              <span className="font-mono text-sm font-normal text-[#6b5d80] uppercase">{form.color_primary}</span>
+            </span>
+          </label>
+          <label className={`${labelClass} sm:col-span-2`}>
+            Brasão / logo <span className="font-normal text-[#8b7a9c]">(opcional)</span>
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={(e) => update('logo', e.target.files?.[0] ?? null)}
+              className={fileInputClass}
+            />
+          </label>
+        </Section>
 
-        <label className="text-sm font-medium text-[#3f3450]">
-          Data e hora
-          <input
-            type="datetime-local"
-            value={form.event_date}
-            onChange={(e) => setForm((prev) => ({ ...prev, event_date: e.target.value }))}
-            className="mt-1 w-full rounded-xl border border-brand-primary-soft px-4 py-2 outline-none focus:border-brand-primary"
-          />
-        </label>
+        <Section
+          icon={<Crown size={18} />}
+          title="Plano e orçamento"
+          description="Calcule o orçamento e aplique: ele preenche o plano, o que foi contratado e o valor cobrado."
+        >
+          <PlanPicker value={form.plan} onChange={(plan) => update('plan', plan)} />
+          {!unlimited && (
+            <div className={`${boxClass} sm:col-span-2`}>
+              <p className={boxTitleClass}>Orçamento</p>
+              <QuoteCalculator eventType={form.event_type} initial={defaultQuoteRequest} onApply={applyQuote} />
+              {appliedQuote && (
+                <p className="text-sm text-[#6b5d80]">
+                  Aplicado: {form.guest_limit ? `até ${form.guest_limit} convidados` : 'convidados sem limite'} ·{' '}
+                  {form.admin_limit} admins. Faixa e admins dá pra ajustar depois na página do evento.
+                  {form.quote && form.quote.event_type !== form.event_type && (
+                    <span className="block text-amber-700">
+                      O tipo do evento mudou depois de aplicar: aplique o orçamento de novo.
+                    </span>
+                  )}
+                </p>
+              )}
+            </div>
+          )}
+          <div className="sm:col-span-2">
+            <label className={checkboxLabelClass}>
+              <input
+                type="checkbox"
+                checked={unlimited || form.gifts_enabled}
+                disabled={unlimited}
+                onChange={(e) => update('gifts_enabled', e.target.checked)}
+                className="accent-brand-primary"
+              />
+              Lista de presentes e chave Pix
+            </label>
+            <span className={hintClass}>
+              {unlimited
+                ? 'Incluída no Ilimitado.'
+                : 'Desligada, some do convite, da confirmação e do painel do evento.'}
+            </span>
+          </div>
+          <label className={labelClass}>
+            Valor cobrado (R$)
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.price_charged}
+              onChange={(e) => update('price_charged', e.target.value)}
+              className={inputClass}
+            />
+            {appliedQuote && (
+              <span className={hintClass}>
+                {suggestedPriceHint(form.price_charged, appliedQuote.total, appliedQuote.coupon?.code)}
+              </span>
+            )}
+          </label>
+        </Section>
 
-        <label className="text-sm font-medium text-[#3f3450]">
-          Cor de destaque
-          <input
-            type="color"
-            value={form.color_primary}
-            onChange={(e) => setForm((prev) => ({ ...prev, color_primary: e.target.value }))}
-            className="mt-1 h-10 w-full rounded-xl border border-brand-primary-soft px-1 outline-none"
-          />
-        </label>
-
-        <label className="text-sm font-medium text-[#3f3450] sm:col-span-2">
-          Fonte do nome
-          <select
-            value={form.name_font}
-            onChange={(e) => setForm((prev) => ({ ...prev, name_font: e.target.value as NameFont }))}
-            className="mt-1 w-full rounded-xl border border-brand-primary-soft px-4 py-2 outline-none focus:border-brand-primary"
-          >
-            {NAME_FONT_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value} style={{ fontFamily: option.fontFamily }}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="text-sm font-medium text-[#3f3450] sm:col-span-2">
-          {isWedding ? 'Local da cerimônia' : 'Local'}
-          <input
-            value={form.venue_name}
-            onChange={(e) => setForm((prev) => ({ ...prev, venue_name: e.target.value }))}
-            className="mt-1 w-full rounded-xl border border-brand-primary-soft px-4 py-2 outline-none focus:border-brand-primary"
-          />
-        </label>
-
-        <label className="text-sm font-medium text-[#3f3450] sm:col-span-2">
-          {isWedding ? 'Endereço da cerimônia' : 'Endereço'}
-          <input
-            value={form.address}
-            onChange={(e) => setForm((prev) => ({ ...prev, address: e.target.value }))}
-            className="mt-1 w-full rounded-xl border border-brand-primary-soft px-4 py-2 outline-none focus:border-brand-primary"
-          />
-        </label>
-
-        <label className="text-sm font-medium text-[#3f3450] sm:col-span-2">
-          {isWedding ? 'Link do mapa da cerimônia' : 'Link do mapa'}
-          <input
-            value={form.maps_url}
-            onChange={(e) => setForm((prev) => ({ ...prev, maps_url: e.target.value }))}
-            className="mt-1 w-full rounded-xl border border-brand-primary-soft px-4 py-2 outline-none focus:border-brand-primary"
-          />
-        </label>
-
-        {isWedding && (
-          <>
-            <label className="text-sm font-medium text-[#3f3450] sm:col-span-2">
-              Local da festa
+        <Section icon={<CalendarDays size={18} />} title="Quando e onde">
+          <label className={`${labelClass} sm:col-span-2 sm:max-w-xs`}>
+            Data e hora
+            <input
+              type="datetime-local"
+              value={form.event_date}
+              onChange={(e) => update('event_date', e.target.value)}
+              className={inputClass}
+            />
+            <span className={hintClass}>
+              {graceDays === null
+                ? 'No plano Ilimitado o acesso ao painel não tem prazo.'
+                : `O acesso ao painel vale até ${graceDays} dias depois dessa data.`}
+            </span>
+          </label>
+          <div className={boxClass}>
+            <p className={boxTitleClass}>{venueLabel}</p>
+            <label className={labelClass}>
+              Local
+              <input
+                value={form.venue_name}
+                onChange={(e) => update('venue_name', e.target.value)}
+                placeholder={venuePlaceholder}
+                className={inputClass}
+              />
+            </label>
+            <label className={labelClass}>
+              Endereço
+              <input value={form.address} onChange={(e) => update('address', e.target.value)} className={inputClass} />
+            </label>
+            <label className={labelClass}>
+              Link do mapa
+              <input
+                value={form.maps_url}
+                onChange={(e) => update('maps_url', e.target.value)}
+                placeholder="https://maps.app.goo.gl/..."
+                className={inputClass}
+              />
+            </label>
+          </div>
+          <div className={boxClass}>
+            <p className={boxTitleClass}>
+              {secondVenueLabel} <span className="font-normal tracking-normal normal-case">(opcional)</span>
+            </p>
+            <label className={labelClass}>
+              Local
               <input
                 value={form.venue_name_secondary}
-                onChange={(e) => setForm((prev) => ({ ...prev, venue_name_secondary: e.target.value }))}
-                className="mt-1 w-full rounded-xl border border-brand-primary-soft px-4 py-2 outline-none focus:border-brand-primary"
+                onChange={(e) => update('venue_name_secondary', e.target.value)}
+                placeholder={secondVenuePlaceholder}
+                className={inputClass}
               />
             </label>
-
-            <label className="text-sm font-medium text-[#3f3450] sm:col-span-2">
-              Link do mapa da festa
+            <label className={labelClass}>
+              Link do mapa
               <input
                 value={form.maps_url_secondary}
-                onChange={(e) => setForm((prev) => ({ ...prev, maps_url_secondary: e.target.value }))}
-                className="mt-1 w-full rounded-xl border border-brand-primary-soft px-4 py-2 outline-none focus:border-brand-primary"
+                onChange={(e) => update('maps_url_secondary', e.target.value)}
+                placeholder="https://maps.app.goo.gl/..."
+                className={inputClass}
               />
             </label>
-          </>
-        )}
+          </div>
+        </Section>
 
-        <label className="text-sm font-medium text-[#3f3450]">
-          Traje
-          <input
-            value={form.dress_code}
-            onChange={(e) => setForm((prev) => ({ ...prev, dress_code: e.target.value }))}
-            className="mt-1 w-full rounded-xl border border-brand-primary-soft px-4 py-2 outline-none focus:border-brand-primary"
-          />
-        </label>
+        <Section icon={<Shirt size={18} />} title="Detalhes">
+          <label className={labelClass}>
+            Traje
+            <input value={form.dress_code} onChange={(e) => update('dress_code', e.target.value)} className={inputClass} />
+          </label>
+          {(unlimited || form.gifts_enabled) && (
+            <label className={labelClass}>
+              Chave Pix
+              <input value={form.pix_key} onChange={(e) => update('pix_key', e.target.value)} className={inputClass} />
+            </label>
+          )}
+        </Section>
 
-        <label className="text-sm font-medium text-[#3f3450]">
-          Chave Pix
-          <input
-            value={form.pix_key}
-            onChange={(e) => setForm((prev) => ({ ...prev, pix_key: e.target.value }))}
-            className="mt-1 w-full rounded-xl border border-brand-primary-soft px-4 py-2 outline-none focus:border-brand-primary"
-          />
-        </label>
-
-        <label className="text-sm font-medium text-[#3f3450] sm:col-span-2">
-          Brasão / logo
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            onChange={(e) => setForm((prev) => ({ ...prev, logo: e.target.files?.[0] ?? null }))}
-            className="mt-2 block text-sm text-[#6b5d80]"
-          />
-        </label>
-
-        <div className="border-t border-brand-primary-soft pt-4 sm:col-span-2">
-          <p className="text-sm font-semibold text-[#3f3450]">Primeiro admin do evento</p>
-          <p className="mt-1 text-xs text-[#8b7a9c]">Ele receberá um email para definir a própria senha.</p>
-        </div>
-
-        <label className="text-sm font-medium text-[#3f3450]">
-          Nome do admin
-          <input
-            required
-            value={form.admin_name}
-            onChange={(e) => setForm((prev) => ({ ...prev, admin_name: e.target.value }))}
-            className="mt-1 w-full rounded-xl border border-brand-primary-soft px-4 py-2 outline-none focus:border-brand-primary"
-          />
-        </label>
-
-        <label className="text-sm font-medium text-[#3f3450]">
-          Email do admin
-          <input
-            required
-            type="email"
-            value={form.admin_email}
-            onChange={(e) => setForm((prev) => ({ ...prev, admin_email: e.target.value }))}
-            className="mt-1 w-full rounded-xl border border-brand-primary-soft px-4 py-2 outline-none focus:border-brand-primary"
-          />
-        </label>
-
-        {error && <p className="text-sm text-rose-600 sm:col-span-2">{error}</p>}
-
-        <button
-          type="submit"
-          disabled={saving}
-          className="cursor-pointer rounded-full bg-brand-primary px-6 py-2 font-semibold text-white transition hover:bg-brand-primary-hover disabled:opacity-60 sm:col-span-2"
+        <Section
+          icon={<UserPlus size={18} />}
+          title="Primeiro admin do evento"
+          description="Recebe um email com o link pra definir a própria senha."
         >
-          {saving ? 'Criando...' : 'Criar evento'}
-        </button>
+          <label className={labelClass}>
+            Nome
+            <input required value={form.admin_name} onChange={(e) => update('admin_name', e.target.value)} className={inputClass} />
+          </label>
+          <label className={labelClass}>
+            Email
+            <input
+              required
+              type="email"
+              value={form.admin_email}
+              onChange={(e) => update('admin_email', e.target.value)}
+              className={inputClass}
+            />
+          </label>
+        </Section>
+
+        <div className="sticky bottom-0 z-10 -mx-4 flex flex-wrap items-center justify-end gap-x-4 gap-y-2 border-t border-[#ece6f0] bg-white/90 px-4 py-3 backdrop-blur sm:-mx-8 sm:px-8">
+          {error && <p className="mr-auto text-sm text-rose-600">{error}</p>}
+          <button
+            type="submit"
+            disabled={saving}
+            className="cursor-pointer rounded-full bg-brand-primary px-8 py-2.5 font-semibold text-white transition hover:bg-brand-primary-hover disabled:opacity-60"
+          >
+            {saving ? 'Criando...' : 'Criar evento'}
+          </button>
+        </div>
       </form>
     </div>
   )

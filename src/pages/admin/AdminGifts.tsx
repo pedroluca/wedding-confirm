@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { Navigate } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { useAdminAuth } from '../../lib/adminAuthContext'
+import { useAdminEvent } from '../../lib/adminEventContext'
+import { giftsEnabled } from '../../lib/plans'
+import { PageHeader } from '../../components/panel/ui'
 import type { AdminGift, GiftTemplate } from '../../types'
 
 const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -147,7 +151,14 @@ function toFormData(form: GiftForm): FormData {
   return data
 }
 
+// Lista de presentes desligada no plano: o item some do menu e o endereço
+// volta pro início do painel.
 export default function AdminGifts() {
+  const event = useAdminEvent()
+  return giftsEnabled(event) ? <AdminGiftsPage /> : <Navigate to="/admin" replace />
+}
+
+function AdminGiftsPage() {
   const { session } = useAdminAuth()
   const token = session?.token ?? null
   const [gifts, setGifts] = useState<AdminGift[]>([])
@@ -238,13 +249,12 @@ export default function AdminGifts() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-[#3f3450]">Lista de presentes</h1>
-      <p className="mt-1 text-sm text-[#8b7a9c]">
-        Itens que aparecem para os convidados na página de presentes, com a quantidade que ainda
-        pode ser presenteada.
-      </p>
+      <PageHeader
+        title="Lista de presentes"
+        description="Itens que aparecem para os convidados na página de presentes, com a quantidade que ainda pode ser presenteada."
+      />
       {!loading && totalItens > 0 && (
-        <p className="mt-2 text-sm font-medium text-brand-primary">
+        <p className="mt-3 text-sm font-medium text-brand-primary">
           {totalItens} {totalItens === 1 ? 'item' : 'itens'} · {totalUnidades}{' '}
           {totalUnidades === 1 ? 'unidade no total' : 'unidades no total'}
         </p>

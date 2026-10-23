@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api, ApiError } from '../lib/api'
+import { useEvent } from '../lib/eventContext'
+import { giftsEnabled } from '../lib/plans'
 import { Checkbox } from '../components/Checkbox'
 import { InviteDetails } from '../components/InviteDetails'
 import { PageShell } from '../components/PageShell'
@@ -8,6 +10,7 @@ import type { GuestInviteResponse } from '../types'
 
 export default function GuestConfirm() {
   const { eventSlug = '', guestSlug = '' } = useParams()
+  const event = useEvent()
   const [data, setData] = useState<GuestInviteResponse | null>(null)
   const [checked, setChecked] = useState<Record<number, boolean>>({})
   const [error, setError] = useState<string | null>(null)
@@ -79,12 +82,14 @@ export default function GuestConfirm() {
           <h1 className="text-2xl font-semibold text-[#3f3450]">Presença registrada!</h1>
           <p className="mt-3 text-[#6b5d80]">Obrigado por confirmar. Vejo você no grande dia 💜</p>
 
-          <Link
-            to={`/${eventSlug}/${guestSlug}/presentes`}
-            className="mt-8 block w-full rounded-full border border-brand-primary-soft px-8 py-4 font-semibold text-brand-primary transition hover:bg-brand-primary-soft"
-          >
-            Não sabe o que dar de presente?
-          </Link>
+          {giftsEnabled(event) && (
+            <Link
+              to={`/${eventSlug}/${guestSlug}/presentes`}
+              className="mt-8 block w-full rounded-full border border-brand-primary-soft px-8 py-4 font-semibold text-brand-primary transition hover:bg-brand-primary-soft"
+            >
+              Não sabe o que dar de presente?
+            </Link>
+          )}
         </div>
       </PageShell>
     )

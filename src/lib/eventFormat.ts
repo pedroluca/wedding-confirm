@@ -12,6 +12,13 @@ export const NAME_FONT_CLASSES_COMPACT: Record<NameFont, string> = {
   pinyon: 'font-pinyon text-4xl',
 }
 
+/** Opções do seletor de fonte do nome (configurações e super-admin). */
+export const NAME_FONT_OPTIONS: { value: NameFont; label: string; fontFamily: string }[] = [
+  { value: 'sans', label: 'Padrão', fontFamily: 'inherit' },
+  { value: 'fleur', label: 'Caligrafia (Fleur De Leah)', fontFamily: "'Fleur De Leah', cursive" },
+  { value: 'pinyon', label: 'Caligrafia (Pinyon Script)', fontFamily: "'Pinyon Script', cursive" },
+]
+
 /** Só a família da fonte, para quem define o próprio tamanho (ex: selo de cera). */
 export const NAME_FONT_FAMILY: Record<NameFont, string> = {
   sans: 'font-sans',

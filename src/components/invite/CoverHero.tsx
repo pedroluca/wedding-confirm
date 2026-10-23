@@ -7,19 +7,22 @@ import {
   parseMysqlDate,
 } from '../../lib/eventFormat'
 
-function CoupleNames() {
+function HostNames() {
   const event = useEvent()
 
   return (
-    <h1 className={`${NAME_FONT_CLASSES[event.name_font]} font-normal text-[#3f3450]`}>
-      <span className="block">{event.host_name}</span>
-      {event.host_name_secondary && (
-        <>
-          <span className="block font-serif text-3xl leading-none text-brand-primary italic">&amp;</span>
-          <span className="block">{event.host_name_secondary}</span>
-        </>
-      )}
-    </h1>
+    <>
+      <h1 className={`${NAME_FONT_CLASSES[event.name_font]} font-normal text-[#3f3450]`}>
+        <span className="block">{event.host_name}</span>
+        {event.host_name_secondary && (
+          <>
+            <span className="block font-serif text-3xl leading-none text-brand-primary italic">&amp;</span>
+            <span className="block">{event.host_name_secondary}</span>
+          </>
+        )}
+      </h1>
+      {event.subtitle && <p className="mt-3 font-serif text-xl text-brand-primary italic">{event.subtitle}</p>}
+    </>
   )
 }
 
@@ -57,7 +60,7 @@ export function CoverHero() {
             className="mx-auto mb-8 w-40 rounded-full shadow-lg shadow-brand-primary-soft"
           />
         )}
-        <CoupleNames />
+        <HostNames />
         <EventDateLine />
       </header>
     )
@@ -74,7 +77,7 @@ export function CoverHero() {
       />
       <div className="cover-fade absolute inset-0" />
       <div className="relative w-full px-6 pb-4 text-center">
-        <CoupleNames />
+        <HostNames />
         <EventDateLine />
       </div>
     </header>

@@ -1,13 +1,24 @@
 import { useEffect, useState } from 'react'
-import { Link, useLocation, useParams } from 'react-router-dom'
+import { Link, Navigate, useLocation, useParams } from 'react-router-dom'
 import { api, ApiError } from '../lib/api'
+import { useEvent } from '../lib/eventContext'
+import { giftsEnabled } from '../lib/plans'
 import { GiftClaimModal } from '../components/GiftClaimModal'
 import { PageShell } from '../components/PageShell'
 import type { Gift } from '../types'
 
 const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 
+// Lista de presentes desligada no plano do evento: um link antigo pra
+// /presentes volta pro convite em vez de mostrar erro.
 export default function GuestGifts() {
+  const { eventSlug = '', guestSlug = '' } = useParams()
+  const event = useEvent()
+
+  return giftsEnabled(event) ? <GuestGiftsPage /> : <Navigate to={`/${eventSlug}/${guestSlug}`} replace />
+}
+
+function GuestGiftsPage() {
   const { eventSlug = '', guestSlug = '' } = useParams()
   // Aberta pelo botão "Lista de presentes" do convite (e não pela tela de
   // confirmação): o "Voltar" leva de volta pro convite.

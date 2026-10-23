@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { api, ApiError } from '../lib/api'
 import { useEvent } from '../lib/eventContext'
+import { EVENT_TYPES } from '../lib/eventTypes'
 import type { Gift } from '../types'
 
 type GiftClaimModalProps = {
@@ -108,9 +109,7 @@ export function GiftClaimModal({ gift, eventSlug, guestSlug, onClose, onClaimed 
 
             <div>
               <label className="text-xs font-medium text-[#8b7a9c]" htmlFor="gift-message">
-                {event.event_type === 'wedding'
-                  ? 'Mensagem para os noivos (opcional)'
-                  : 'Mensagem para quem está comemorando (opcional)'}
+                {EVENT_TYPES[event.event_type].giftMessageLabel}
               </label>
               <textarea
                 id="gift-message"

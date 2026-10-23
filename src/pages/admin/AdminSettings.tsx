@@ -1,9 +1,12 @@
-import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react'
-import { CalendarDays, Heart, MessageSquareText, RotateCcw, Shirt, Sparkles } from 'lucide-react'
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
+import { CalendarDays, Heart, MailOpen, MessageSquareText, RotateCcw, Shirt, Sparkles } from 'lucide-react'
 import { api, ApiError } from '../../lib/api'
 import { useAdminAuth } from '../../lib/adminAuthContext'
 import { useAdminEvent, useSetAdminEvent } from '../../lib/adminEventContext'
-import { NAME_FONT_CLASSES_COMPACT } from '../../lib/eventFormat'
+import { NAME_FONT_CLASSES_COMPACT, NAME_FONT_OPTIONS } from '../../lib/eventFormat'
+import { EVENT_TYPES } from '../../lib/eventTypes'
+import { resolveInviteStyle } from '../../lib/inviteStyles'
+import { giftsEnabled, PLAN_LABELS } from '../../lib/plans'
 import { resizeImage } from '../../lib/resizeImage'
 import {
   buildShareMessage,
@@ -11,15 +14,30 @@ import {
   SHARE_MESSAGE_MAX_LENGTH,
   shareMessageVariables,
 } from '../../lib/shareMessage'
-import type { AdminEvent, EventType, NameFont } from '../../types'
+import { InviteStylePicker } from '../../components/InviteStylePicker'
+import {
+  boxClass,
+  boxTitleClass,
+  checkboxLabelClass,
+  fileInputClass,
+  hintClass,
+  inputClass,
+  labelClass,
+  SaveBar,
+  Section,
+} from '../../components/panel/form'
+import { PageHeader } from '../../components/panel/ui'
+import type { AdminEvent, EventType, InviteStyle, NameFont } from '../../types'
 
 // Mesmos limites do backend (read_event_branding_fields e src/Uploads.php).
 const INVITE_MESSAGE_MAX_LENGTH = 1000
+const SUBTITLE_MAX_LENGTH = 150
 const MUSIC_MAX_BYTES = 15 * 1024 * 1024
 
 type SettingsForm = {
   host_name: string
   host_name_secondary: string
+  subtitle: string
   event_date: string
   venue_name: string
   venue_name_secondary: string
@@ -32,18 +50,15 @@ type SettingsForm = {
   pix_key: string
   color_primary: string
   name_font: NameFont
+  invite_style: InviteStyle
+  show_countdown: boolean
+  show_calendar: boolean
   logo: File | null
   cover_photo: File | null
   remove_cover_photo: boolean
   music: File | null
   remove_music: boolean
 }
-
-const NAME_FONT_OPTIONS: { value: NameFont; label: string; fontFamily: string }[] = [
-  { value: 'sans', label: 'Padrão', fontFamily: 'inherit' },
-  { value: 'fleur', label: 'Caligrafia (Fleur De Leah)', fontFamily: "'Fleur De Leah', cursive" },
-  { value: 'pinyon', label: 'Caligrafia (Pinyon Script)', fontFamily: "'Pinyon Script', cursive" },
-]
 
 const dateTimeFormatter = new Intl.DateTimeFormat('pt-BR', {
   day: 'numeric',
@@ -68,6 +83,7 @@ function toFormState(event: AdminEvent): SettingsForm {
   return {
     host_name: event.host_name,
     host_name_secondary: event.host_name_secondary ?? '',
+    subtitle: event.subtitle ?? '',
     event_date: toDatetimeLocalValue(event.event_date),
     venue_name: event.venue_name ?? '',
     venue_name_secondary: event.venue_name_secondary ?? '',
@@ -81,6 +97,9 @@ function toFormState(event: AdminEvent): SettingsForm {
     pix_key: event.pix_key ?? '',
     color_primary: event.color_primary,
     name_font: event.name_font,
+    invite_style: resolveInviteStyle(event),
+    show_countdown: event.show_countdown !== false,
+    show_calendar: event.show_calendar !== false,
     logo: null,
     cover_photo: null,
     remove_cover_photo: false,
@@ -93,6 +112,7 @@ function toFormData(form: SettingsForm, eventType: EventType): FormData {
   const data = new FormData()
   data.set('host_name', form.host_name.trim())
   data.set('host_name_secondary', form.host_name_secondary.trim())
+  data.set('subtitle', form.subtitle.trim())
   data.set('event_date', form.event_date)
   data.set('venue_name', form.venue_name.trim())
   data.set('venue_name_secondary', form.venue_name_secondary.trim())
@@ -107,6 +127,9 @@ function toFormData(form: SettingsForm, eventType: EventType): FormData {
   data.set('pix_key', form.pix_key.trim())
   data.set('color_primary', form.color_primary)
   data.set('name_font', form.name_font)
+  data.set('invite_style', form.invite_style)
+  data.set('show_countdown', form.show_countdown ? '1' : '0')
+  data.set('show_calendar', form.show_calendar ? '1' : '0')
   if (form.logo) {
     data.set('logo', form.logo)
   }
@@ -121,48 +144,6 @@ function toFormData(form: SettingsForm, eventType: EventType): FormData {
     data.set('remove_music', '1')
   }
   return data
-}
-
-const HOST_LABEL: Record<EventType, [string, string]> = {
-  wedding: ['Nome de um(a) dos noivos', 'Nome do(a) outro(a) noivo(a)'],
-  birthday: ['Nome do aniversariante', ''],
-}
-
-const inputClass =
-  'mt-1 w-full rounded-xl border border-brand-primary-soft bg-white px-4 py-2 font-normal outline-none focus:border-brand-primary'
-const labelClass = 'block text-sm font-medium text-[#3f3450]'
-const hintClass = 'mt-1 block text-xs font-normal text-[#8b7a9c]'
-const fileInputClass =
-  'mt-2 block w-full text-sm text-[#6b5d80] file:mr-3 file:cursor-pointer file:rounded-full file:border-0 file:bg-brand-primary-soft file:px-4 file:py-2 file:text-sm file:font-medium file:text-brand-primary hover:file:bg-brand-primary/20'
-const boxClass = 'space-y-3 rounded-xl border border-brand-primary-soft bg-brand-primary-soft/25 p-4'
-const boxTitleClass = 'text-xs font-semibold tracking-wide text-brand-primary uppercase'
-const checkboxLabelClass = 'mt-2 flex cursor-pointer items-center gap-2 text-sm text-[#6b5d80]'
-
-function Section({
-  icon,
-  title,
-  description,
-  children,
-}: {
-  icon: ReactNode
-  title: string
-  description?: string
-  children: ReactNode
-}) {
-  return (
-    <section className="rounded-2xl border border-brand-primary-soft bg-white p-5 sm:p-6">
-      <div className="flex items-start gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-primary-soft text-brand-primary">
-          {icon}
-        </span>
-        <div>
-          <h2 className="font-semibold text-[#3f3450]">{title}</h2>
-          {description && <p className="mt-0.5 text-sm text-[#8b7a9c]">{description}</p>}
-        </div>
-      </div>
-      <div className="mt-5 grid gap-4 sm:grid-cols-2">{children}</div>
-    </section>
-  )
 }
 
 export default function AdminSettings() {
@@ -183,19 +164,27 @@ export default function AdminSettings() {
   const [preparingCover, setPreparingCover] = useState(false)
   const [previewWithGroup, setPreviewWithGroup] = useState(true)
 
-  const isWedding = event.event_type === 'wedding'
-  const [hostLabel, hostSecondaryLabel] = HOST_LABEL[event.event_type]
+  const typeProfile = EVENT_TYPES[event.event_type]
+  const [hostLabel, hostSecondaryLabel] = typeProfile.hostLabels
+  const [venueLabel, secondVenueLabel] = typeProfile.venueLabels
+  const [venuePlaceholder, secondVenuePlaceholder] = typeProfile.venuePlaceholders
   const shownCover = coverPreview ?? event.cover_photo_url
   const defaultShareMessage = DEFAULT_SHARE_MESSAGE[event.event_type]
+  // O Ilimitado é interno: o cliente não vê o nome do plano, só que o acesso não tem prazo.
+  const planLabel = event.plan && event.plan !== 'unlimited' ? PLAN_LABELS[event.plan] : null
 
-  // Prévia com o que está no formulário (mesmo antes de salvar).
+  // Prévias (mensagem de envio, miniaturas da abertura) com o que está no
+  // formulário, mesmo antes de salvar.
+  const previewEvent: AdminEvent = {
+    ...event,
+    host_name: form.host_name.trim() || event.host_name,
+    host_name_secondary: form.host_name_secondary.trim() || null,
+    event_date: form.event_date || null,
+    color_primary: form.color_primary,
+    name_font: form.name_font,
+  }
   const sharePreview = buildShareMessage(form.share_message.trim() || defaultShareMessage, {
-    event: {
-      ...event,
-      host_name: form.host_name.trim() || event.host_name,
-      host_name_secondary: form.host_name_secondary.trim() || null,
-      event_date: form.event_date || null,
-    },
+    event: previewEvent,
     guestName: 'João Silva',
     dependentNames: previewWithGroup ? ['Ana Silva', 'Pedro Silva'] : [],
     link: `${window.location.origin}/${event.slug}/joao-silva-1`,
@@ -275,23 +264,28 @@ export default function AdminSettings() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-[#3f3450]">Configurações do evento</h1>
-      <p className="mt-1 text-sm text-[#8b7a9c]">
-        Personalize as informações e a cor que aparecem para os convidados no convite.
-      </p>
-      <p className="mt-2 text-sm font-medium text-brand-primary">
-        {event.access_expires_at
-          ? `Seu acesso ao painel está liberado até ${formatAccessExpiresAt(event.access_expires_at)}.`
-          : 'Seu acesso ao painel não tem prazo de expiração.'}
-      </p>
+      <PageHeader
+        title="Configurações do evento"
+        description={
+          <>
+            Personalize as informações e a cor que aparecem para os convidados no convite.{' '}
+            <span className="font-medium text-brand-primary">
+              {planLabel && `Plano ${planLabel}. `}
+              {event.access_expires_at
+                ? `Seu acesso ao painel está liberado até ${formatAccessExpiresAt(event.access_expires_at)}.`
+                : 'Seu acesso ao painel não tem prazo de expiração.'}
+            </span>
+          </>
+        }
+      />
 
-      <form onSubmit={handleSubmit} className="mt-6 space-y-5">
+      <form onSubmit={handleSubmit} className="mt-8 space-y-5">
         <Section
           icon={<Heart size={18} />}
-          title={isWedding ? 'Os noivos' : 'Aniversariante'}
+          title={typeProfile.hostsTitle}
           description="Como os nomes aparecem no envelope e no convite."
         >
-          <label className={`${labelClass} ${isWedding ? '' : 'sm:col-span-2'}`}>
+          <label className={labelClass}>
             {hostLabel}
             <input
               required
@@ -301,16 +295,26 @@ export default function AdminSettings() {
             />
           </label>
 
-          {isWedding && (
-            <label className={labelClass}>
-              {hostSecondaryLabel}
-              <input
-                value={form.host_name_secondary}
-                onChange={(e) => setForm((prev) => ({ ...prev, host_name_secondary: e.target.value }))}
-                className={inputClass}
-              />
-            </label>
-          )}
+          <label className={labelClass}>
+            {hostSecondaryLabel}
+            <input
+              value={form.host_name_secondary}
+              onChange={(e) => setForm((prev) => ({ ...prev, host_name_secondary: e.target.value }))}
+              className={inputClass}
+            />
+          </label>
+
+          <label className={`${labelClass} sm:col-span-2`}>
+            Subtítulo <span className="font-normal text-[#8b7a9c]">(opcional)</span>
+            <input
+              value={form.subtitle}
+              maxLength={SUBTITLE_MAX_LENGTH}
+              onChange={(e) => setForm((prev) => ({ ...prev, subtitle: e.target.value }))}
+              placeholder={typeProfile.subtitlePlaceholder}
+              className={inputClass}
+            />
+            <span className={hintClass}>Aparece logo abaixo dos nomes.</span>
+          </label>
 
           <label className={labelClass}>
             Fonte do nome
@@ -343,7 +347,7 @@ export default function AdminSettings() {
           <div className="rounded-xl bg-brand-primary-soft/25 px-4 py-5 text-center sm:col-span-2">
             <p className={`${NAME_FONT_CLASSES_COMPACT[form.name_font]} text-[#3f3450]`}>
               {form.host_name.trim() || 'Nome'}
-              {isWedding && form.host_name_secondary.trim() && (
+              {form.host_name_secondary.trim() && (
                 <>
                   {' '}
                   <span className="font-serif italic" style={{ color: form.color_primary }}>
@@ -353,6 +357,11 @@ export default function AdminSettings() {
                 </>
               )}
             </p>
+            {form.subtitle.trim() && (
+              <p className="mt-1 font-serif text-lg italic" style={{ color: form.color_primary }}>
+                {form.subtitle.trim()}
+              </p>
+            )}
             <p className="mt-1 text-xs text-[#8b7a9c]">Prévia</p>
           </div>
 
@@ -385,14 +394,14 @@ export default function AdminSettings() {
             />
           </label>
 
-          <div className={`${boxClass} ${isWedding ? '' : 'sm:col-span-2'}`}>
-            <p className={boxTitleClass}>{isWedding ? 'Cerimônia' : 'Local'}</p>
+          <div className={boxClass}>
+            <p className={boxTitleClass}>{venueLabel}</p>
             <label className={labelClass}>
               Local
               <input
                 value={form.venue_name}
                 onChange={(e) => setForm((prev) => ({ ...prev, venue_name: e.target.value }))}
-                placeholder={isWedding ? 'Ex: Paróquia São José' : 'Ex: Salão de festas Alegria'}
+                placeholder={venuePlaceholder}
                 className={inputClass}
               />
             </label>
@@ -416,30 +425,30 @@ export default function AdminSettings() {
             </label>
           </div>
 
-          {isWedding && (
-            <div className={boxClass}>
-              <p className={boxTitleClass}>Festa</p>
-              <label className={labelClass}>
-                Local
-                <input
-                  value={form.venue_name_secondary}
-                  onChange={(e) => setForm((prev) => ({ ...prev, venue_name_secondary: e.target.value }))}
-                  placeholder="Ex: Espaço Villa Jardim"
-                  className={inputClass}
-                />
-              </label>
-              <label className={labelClass}>
-                Link do mapa
-                <input
-                  value={form.maps_url_secondary}
-                  onChange={(e) => setForm((prev) => ({ ...prev, maps_url_secondary: e.target.value }))}
-                  placeholder="https://maps.app.goo.gl/..."
-                  className={inputClass}
-                />
-              </label>
-              <p className={hintClass}>Deixe em branco se a festa for no mesmo local da cerimônia.</p>
-            </div>
-          )}
+          <div className={boxClass}>
+            <p className={boxTitleClass}>
+              {secondVenueLabel} <span className="font-normal tracking-normal normal-case">(opcional)</span>
+            </p>
+            <label className={labelClass}>
+              Local
+              <input
+                value={form.venue_name_secondary}
+                onChange={(e) => setForm((prev) => ({ ...prev, venue_name_secondary: e.target.value }))}
+                placeholder={secondVenuePlaceholder}
+                className={inputClass}
+              />
+            </label>
+            <label className={labelClass}>
+              Link do mapa
+              <input
+                value={form.maps_url_secondary}
+                onChange={(e) => setForm((prev) => ({ ...prev, maps_url_secondary: e.target.value }))}
+                placeholder="https://maps.app.goo.gl/..."
+                className={inputClass}
+              />
+            </label>
+            <p className={hintClass}>Deixe em branco se for tudo no mesmo local.</p>
+          </div>
         </Section>
 
         <Section icon={<Shirt size={18} />} title="Detalhes">
@@ -453,110 +462,153 @@ export default function AdminSettings() {
             />
           </label>
 
-          <label className={labelClass}>
-            Chave Pix
-            <input
-              value={form.pix_key}
-              onChange={(e) => setForm((prev) => ({ ...prev, pix_key: e.target.value }))}
-              className={inputClass}
-            />
-            <span className={hintClass}>Aparece na lista de presentes.</span>
-          </label>
+          {/* Escondida com a lista de presentes desligada, mas continua no
+              formulário e é salva como está. */}
+          {giftsEnabled(event) && (
+            <label className={labelClass}>
+              Chave Pix
+              <input
+                value={form.pix_key}
+                onChange={(e) => setForm((prev) => ({ ...prev, pix_key: e.target.value }))}
+                className={inputClass}
+              />
+              <span className={hintClass}>Aparece na lista de presentes.</span>
+            </label>
+          )}
         </Section>
 
-        {isWedding && (
-          <Section
-            icon={<Sparkles size={18} />}
-            title="Convite"
-            description="Mensagem, foto e música que o convidado vê ao abrir o envelope."
-          >
-            <label className={`${labelClass} sm:col-span-2`}>
-              Mensagem do convite
-              <textarea
-                rows={4}
-                maxLength={INVITE_MESSAGE_MAX_LENGTH}
-                value={form.invite_message}
-                onChange={(e) => setForm((prev) => ({ ...prev, invite_message: e.target.value }))}
-                placeholder="Ex: Com a bênção de Deus e de nossas famílias, convidamos você para celebrar conosco o início da nossa história."
-                className={`${inputClass} resize-y`}
-              />
-              <span className="block text-right text-xs font-normal text-[#8b7a9c]">
-                {form.invite_message.length}/{INVITE_MESSAGE_MAX_LENGTH}
-              </span>
-            </label>
+        <Section
+          icon={<MailOpen size={18} />}
+          title="Abertura do convite"
+          description="O que o convidado vê ao abrir o link, antes do convite. Toque em um estilo para ver a abertura."
+        >
+          <div className="sm:col-span-2">
+            <InviteStylePicker
+              event={previewEvent}
+              value={form.invite_style}
+              onChange={(style) => setForm((prev) => ({ ...prev, invite_style: style }))}
+            />
+          </div>
+        </Section>
 
-            <div className={boxClass}>
-              <p className={boxTitleClass}>Foto do casal</p>
-              <p className={hintClass}>
-                Aparece no topo do convite e vai desfocando até o fundo. Fotos na vertical funcionam melhor.
-              </p>
-              {shownCover && (
-                <img
-                  src={shownCover}
-                  alt=""
-                  className={`h-40 w-32 rounded-xl object-cover transition ${
-                    form.remove_cover_photo ? 'opacity-40 grayscale' : ''
-                  }`}
-                />
-              )}
-              <input
-                ref={coverRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                aria-label="Foto do casal"
-                onChange={handleCoverChange}
-                className={fileInputClass}
-              />
-              {preparingCover && <p className={hintClass}>Preparando a foto...</p>}
-              {event.cover_photo_url && !form.cover_photo && (
-                <label className={checkboxLabelClass}>
-                  <input
-                    type="checkbox"
-                    checked={form.remove_cover_photo}
-                    onChange={(e) => setForm((prev) => ({ ...prev, remove_cover_photo: e.target.checked }))}
-                    className="accent-brand-primary"
-                  />
-                  Remover foto atual
-                </label>
-              )}
-            </div>
+        <Section
+          icon={<Sparkles size={18} />}
+          title="Convite"
+          description="Mensagem, foto, música e o que mais aparece no convite."
+        >
+          <label className={`${labelClass} sm:col-span-2`}>
+            Mensagem do convite
+            <textarea
+              rows={4}
+              maxLength={INVITE_MESSAGE_MAX_LENGTH}
+              value={form.invite_message}
+              onChange={(e) => setForm((prev) => ({ ...prev, invite_message: e.target.value }))}
+              placeholder={typeProfile.inviteMessagePlaceholder}
+              className={`${inputClass} resize-y`}
+            />
+            <span className="block text-right text-xs font-normal text-[#8b7a9c]">
+              {form.invite_message.length}/{INVITE_MESSAGE_MAX_LENGTH}
+            </span>
+          </label>
 
-            <div className={boxClass}>
-              <p className={boxTitleClass}>Música</p>
-              <p className={hintClass}>
-                Começa a tocar quando o convidado abre o envelope, com um botão para pausar. MP3, M4A ou OGG, até
-                15MB.
-              </p>
-              {event.music_url && !form.music && (
-                <audio
-                  controls
-                  preload="none"
-                  src={event.music_url}
-                  className={`w-full transition ${form.remove_music ? 'opacity-40' : ''}`}
+          <div className={`${boxClass} sm:col-span-2`}>
+            <p className={boxTitleClass}>Seções</p>
+            <p className={hintClass}>Só aparecem quando o evento tem data e hora definidas.</p>
+            <div className="flex flex-col gap-x-8 sm:flex-row">
+              <label className={checkboxLabelClass}>
+                <input
+                  type="checkbox"
+                  checked={form.show_countdown}
+                  onChange={(e) => setForm((prev) => ({ ...prev, show_countdown: e.target.checked }))}
+                  className="accent-brand-primary"
                 />
-              )}
-              <input
-                ref={musicRef}
-                type="file"
-                accept=".mp3,.m4a,.ogg,audio/mpeg,audio/mp4,audio/ogg"
-                aria-label="Música do convite"
-                onChange={handleMusicChange}
-                className={fileInputClass}
-              />
-              {event.music_url && !form.music && (
-                <label className={checkboxLabelClass}>
-                  <input
-                    type="checkbox"
-                    checked={form.remove_music}
-                    onChange={(e) => setForm((prev) => ({ ...prev, remove_music: e.target.checked }))}
-                    className="accent-brand-primary"
-                  />
-                  Remover música atual
-                </label>
-              )}
+                Contagem regressiva
+              </label>
+              <label className={checkboxLabelClass}>
+                <input
+                  type="checkbox"
+                  checked={form.show_calendar}
+                  onChange={(e) => setForm((prev) => ({ ...prev, show_calendar: e.target.checked }))}
+                  className="accent-brand-primary"
+                />
+                Salve a data (adicionar à agenda)
+              </label>
             </div>
-          </Section>
-        )}
+          </div>
+
+          <div className={boxClass}>
+            <p className={boxTitleClass}>Foto de capa</p>
+            <p className={hintClass}>
+              Aparece no topo do convite e vai desfocando até o fundo. Fotos na vertical funcionam melhor.
+            </p>
+            {shownCover && (
+              <img
+                src={shownCover}
+                alt=""
+                className={`h-40 w-32 rounded-xl object-cover transition ${
+                  form.remove_cover_photo ? 'opacity-40 grayscale' : ''
+                }`}
+              />
+            )}
+            <input
+              ref={coverRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              aria-label="Foto de capa"
+              onChange={handleCoverChange}
+              className={fileInputClass}
+            />
+            {preparingCover && <p className={hintClass}>Preparando a foto...</p>}
+            {event.cover_photo_url && !form.cover_photo && (
+              <label className={checkboxLabelClass}>
+                <input
+                  type="checkbox"
+                  checked={form.remove_cover_photo}
+                  onChange={(e) => setForm((prev) => ({ ...prev, remove_cover_photo: e.target.checked }))}
+                  className="accent-brand-primary"
+                />
+                Remover foto atual
+              </label>
+            )}
+          </div>
+
+          <div className={boxClass}>
+            <p className={boxTitleClass}>Música</p>
+            <p className={hintClass}>
+              {form.invite_style === 'direct'
+                ? 'Na abertura "Direto" o convidado não toca em nada para abrir, então a música só começa quando ele aperta o botão de música.'
+                : 'Começa a tocar quando o convidado abre o envelope, com um botão para pausar.'}{' '}
+              MP3, M4A ou OGG, até 15MB.
+            </p>
+            {event.music_url && !form.music && (
+              <audio
+                controls
+                preload="none"
+                src={event.music_url}
+                className={`w-full transition ${form.remove_music ? 'opacity-40' : ''}`}
+              />
+            )}
+            <input
+              ref={musicRef}
+              type="file"
+              accept=".mp3,.m4a,.ogg,audio/mpeg,audio/mp4,audio/ogg"
+              aria-label="Música do convite"
+              onChange={handleMusicChange}
+              className={fileInputClass}
+            />
+            {event.music_url && !form.music && (
+              <label className={checkboxLabelClass}>
+                <input
+                  type="checkbox"
+                  checked={form.remove_music}
+                  onChange={(e) => setForm((prev) => ({ ...prev, remove_music: e.target.checked }))}
+                  className="accent-brand-primary"
+                />
+                Remover música atual
+              </label>
+            )}
+          </div>
+        </Section>
 
         <Section
           icon={<MessageSquareText size={18} />}
@@ -643,17 +695,7 @@ export default function AdminSettings() {
           </div>
         </Section>
 
-        <div className="sticky bottom-0 z-10 -mx-6 flex flex-wrap items-center justify-end gap-x-4 gap-y-2 border-t border-brand-primary-soft bg-white/90 px-6 py-3 backdrop-blur">
-          {error && <p className="mr-auto text-sm text-rose-600">{error}</p>}
-          {saved && !error && <p className="mr-auto text-sm text-emerald-600">Alterações salvas!</p>}
-          <button
-            type="submit"
-            disabled={saving || preparingCover}
-            className="cursor-pointer rounded-full bg-brand-primary px-8 py-2.5 font-semibold text-white transition hover:bg-brand-primary-hover disabled:opacity-60"
-          >
-            {saving ? 'Salvando...' : 'Salvar alterações'}
-          </button>
-        </div>
+        <SaveBar saving={saving} disabled={preparingCover} error={error} saved={saved} />
       </form>
     </div>
   )
