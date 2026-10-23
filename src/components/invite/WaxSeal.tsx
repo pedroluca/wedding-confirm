@@ -40,10 +40,9 @@ const wax = (percent: number, mix: string) =>
 
 const initialOf = (name: string) => name.trim().charAt(0).toLocaleUpperCase('pt-BR')
 
-// Área onde as iniciais precisam caber: na largura, um pouco antes do anel
-// de bolinhas (r=38), que só os floreios finos chegam perto; na altura, o
-// miolo carimbado.
-const MAX_INK_WIDTH = 70
+// Área onde as iniciais precisam caber, com folga dentro do círculo
+// carimbado (r=33): duas letras de caligrafia encostavam na borda.
+const MAX_INK_WIDTH = 58
 const MAX_INK_HEIGHT = 40
 
 /** Tamanho e posição das iniciais pelo desenho real das letras (não pela caixa da fonte). */
@@ -92,7 +91,7 @@ export function WaxSeal({ className }: { className?: string }) {
     ? `${initialOf(event.host_name)}${initialOf(event.host_name_secondary)}`
     : initialOf(event.host_name)
   const isScript = event.name_font !== 'sans'
-  const fontSize = event.host_name_secondary ? (isScript ? 36 : 26) : isScript ? 40 : 30
+  const fontSize = event.host_name_secondary ? (isScript ? 34 : 24) : isScript ? 40 : 30
   const letterSpacing = isScript ? 0 : 1
 
   const fitKey = `${event.name_font}|${initials}`
