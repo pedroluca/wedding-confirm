@@ -6,6 +6,7 @@ import { useAdminAuth } from '../../lib/adminAuthContext'
 import { AdminEventContext, AdminEventSetterContext } from '../../lib/adminEventContext'
 import { parseMysqlDate } from '../../lib/eventFormat'
 import { EVENT_TYPES, formatHostNames } from '../../lib/eventTypes'
+import { giftsEnabled } from '../../lib/plans'
 import { AccessExpired } from '../../components/AccessExpired'
 import { PanelLayout, type PanelNavItem } from '../../components/panel/PanelLayout'
 import type { AdminEvent } from '../../types'
@@ -96,11 +97,13 @@ export default function AdminLayout() {
   }
 
   const impersonating = superSession !== null
+  // Lista de presentes desligada no plano: o item some do menu.
+  const nav = event && !giftsEnabled(event) ? NAV.filter((item) => item.to !== '/admin/presentes') : NAV
 
   return (
     <PanelLayout
       variant="admin"
-      nav={NAV}
+      nav={nav}
       context={event ? <EventCard event={event} /> : undefined}
       userName={session.admin.name}
       logoutLabel={impersonating ? 'Voltar ao super' : 'Sair'}

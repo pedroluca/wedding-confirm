@@ -1,21 +1,24 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, CalendarDays, Heart, Shirt, UserPlus } from 'lucide-react'
+import { ArrowLeft, CalendarDays, Crown, Heart, Shirt, UserPlus } from 'lucide-react'
 import { api, ApiError } from '../../lib/api'
 import { useAdminAuth } from '../../lib/adminAuthContext'
 import { NAME_FONT_OPTIONS } from '../../lib/eventFormat'
 import { EVENT_TYPE_OPTIONS, EVENT_TYPES, eventTypeOptionLabel } from '../../lib/eventTypes'
+import { PLAN_GRACE_DAYS } from '../../lib/plans'
 import {
   boxClass,
   boxTitleClass,
+  checkboxLabelClass,
   fileInputClass,
   hintClass,
   inputClass,
   labelClass,
   Section,
 } from '../../components/panel/form'
+import { PlanPicker } from '../../components/panel/PlanPicker'
 import { PageHeader } from '../../components/panel/ui'
-import type { EventType, NameFont, SuperEvent } from '../../types'
+import type { EventPlan, EventType, NameFont, SuperEvent } from '../../types'
 
 type CreateForm = {
   event_type: EventType
@@ -33,6 +36,8 @@ type CreateForm = {
   color_primary: string
   name_font: NameFont
   logo: File | null
+  plan: EventPlan
+  gifts_enabled: boolean
   admin_name: string
   admin_email: string
 }
@@ -53,6 +58,8 @@ const EMPTY_FORM: CreateForm = {
   color_primary: '#d2afff',
   name_font: 'sans',
   logo: null,
+  plan: 'standard',
+  gifts_enabled: true,
   admin_name: '',
   admin_email: '',
 }
@@ -73,6 +80,8 @@ function toFormData(form: CreateForm): FormData {
   data.set('pix_key', form.pix_key.trim())
   data.set('color_primary', form.color_primary)
   data.set('name_font', form.name_font)
+  data.set('plan', form.plan)
+  data.set('gifts_enabled', form.gifts_enabled ? '1' : '0')
   data.set('admin_name', form.admin_name.trim())
   data.set('admin_email', form.admin_email.trim())
   if (form.logo) {
@@ -93,6 +102,8 @@ export default function SuperEventCreate() {
   const [hostLabel, hostSecondaryLabel] = typeProfile.hostLabels
   const [venueLabel, secondVenueLabel] = typeProfile.venueLabels
   const [venuePlaceholder, secondVenuePlaceholder] = typeProfile.venuePlaceholders
+  const unlimited = form.plan === 'unlimited'
+  const graceDays = PLAN_GRACE_DAYS[form.plan]
 
   const update = <K extends keyof CreateForm>(key: K, value: CreateForm[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -199,6 +210,31 @@ export default function SuperEventCreate() {
           </label>
         </Section>
 
+        <Section
+          icon={<Crown size={18} />}
+          title="Plano"
+          description="Define o prazo de acesso e o que o evento libera. Faixa de convidados e admins ficam na página do evento."
+        >
+          <PlanPicker value={form.plan} onChange={(plan) => update('plan', plan)} />
+          <div className="sm:col-span-2">
+            <label className={checkboxLabelClass}>
+              <input
+                type="checkbox"
+                checked={unlimited || form.gifts_enabled}
+                disabled={unlimited}
+                onChange={(e) => update('gifts_enabled', e.target.checked)}
+                className="accent-brand-primary"
+              />
+              Lista de presentes e chave Pix
+            </label>
+            <span className={hintClass}>
+              {unlimited
+                ? 'Incluída no Ilimitado.'
+                : 'Desligada, some do convite, da confirmação e do painel do evento.'}
+            </span>
+          </div>
+        </Section>
+
         <Section icon={<CalendarDays size={18} />} title="Quando e onde">
           <label className={`${labelClass} sm:col-span-2 sm:max-w-xs`}>
             Data e hora
@@ -208,7 +244,11 @@ export default function SuperEventCreate() {
               onChange={(e) => update('event_date', e.target.value)}
               className={inputClass}
             />
-            <span className={hintClass}>O acesso ao painel vale até alguns dias depois dessa data.</span>
+            <span className={hintClass}>
+              {graceDays === null
+                ? 'No plano Ilimitado o acesso ao painel não tem prazo.'
+                : `O acesso ao painel vale até ${graceDays} dias depois dessa data.`}
+            </span>
           </label>
           <div className={boxClass}>
             <p className={boxTitleClass}>{venueLabel}</p>
@@ -265,10 +305,12 @@ export default function SuperEventCreate() {
             Traje
             <input value={form.dress_code} onChange={(e) => update('dress_code', e.target.value)} className={inputClass} />
           </label>
-          <label className={labelClass}>
-            Chave Pix
-            <input value={form.pix_key} onChange={(e) => update('pix_key', e.target.value)} className={inputClass} />
-          </label>
+          {(unlimited || form.gifts_enabled) && (
+            <label className={labelClass}>
+              Chave Pix
+              <input value={form.pix_key} onChange={(e) => update('pix_key', e.target.value)} className={inputClass} />
+            </label>
+          )}
         </Section>
 
         <Section

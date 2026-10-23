@@ -6,11 +6,13 @@ import {
   Check,
   CircleCheck,
   Copy,
+  Crown,
   ExternalLink,
   Gift,
   Heart,
   KeyRound,
   LogIn,
+  PackageCheck,
   Shirt,
   Sparkles,
   Trash2,
@@ -23,9 +25,12 @@ import { useAdminAuth, type Session } from '../../lib/adminAuthContext'
 import { formatEventDate, NAME_FONT_OPTIONS } from '../../lib/eventFormat'
 import { EVENT_TYPE_OPTIONS, EVENT_TYPES, eventTypeOptionLabel, formatHostNames } from '../../lib/eventTypes'
 import { INVITE_STYLE_OPTIONS, resolveInviteStyle } from '../../lib/inviteStyles'
+import { PLAN_LABELS, suggestedAccessExpiry } from '../../lib/plans'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { InviteStylePicker } from '../../components/InviteStylePicker'
 import { AccessBadge } from '../../components/panel/AccessBadge'
+import { PlanBadge } from '../../components/panel/PlanBadge'
+import { PlanPicker } from '../../components/panel/PlanPicker'
 import {
   boxClass,
   boxTitleClass,
@@ -43,7 +48,7 @@ import {
   secondaryButtonClass,
   StatCard,
 } from '../../components/panel/ui'
-import type { EventType, InviteStyle, NameFont, SuperEvent } from '../../types'
+import type { EventPlan, EventType, InviteStyle, NameFont, SuperEvent } from '../../types'
 import { EventAdminsPanel } from './EventAdminsPanel'
 
 type Tab = 'geral' | 'dados' | 'acesso' | 'admins'
@@ -51,7 +56,7 @@ type Tab = 'geral' | 'dados' | 'acesso' | 'admins'
 const TABS: { value: Tab; label: string }[] = [
   { value: 'geral', label: 'Visão geral' },
   { value: 'dados', label: 'Dados do evento' },
-  { value: 'acesso', label: 'Acesso e financeiro' },
+  { value: 'acesso', label: 'Plano e financeiro' },
   { value: 'admins', label: 'Admins' },
 ]
 
@@ -77,6 +82,10 @@ type EditForm = {
   invite_style: InviteStyle
   show_countdown: boolean
   show_calendar: boolean
+  plan: EventPlan
+  gifts_enabled: boolean
+  guest_limit: string
+  admin_limit: string
   access_expires_at: string
   price_charged: string
   last_payment_at: string
@@ -108,6 +117,10 @@ function toFormState(event: SuperEvent): EditForm {
     invite_style: resolveInviteStyle(event),
     show_countdown: event.show_countdown !== false,
     show_calendar: event.show_calendar !== false,
+    plan: event.plan,
+    gifts_enabled: event.contract.gifts_enabled,
+    guest_limit: event.contract.guest_limit !== null ? String(event.contract.guest_limit) : '',
+    admin_limit: event.contract.admin_limit !== null ? String(event.contract.admin_limit) : '',
     access_expires_at: toDatetimeLocalValue(event.access_expires_at),
     price_charged: event.price_charged !== null ? String(event.price_charged) : '',
     last_payment_at: event.last_payment_at ?? '',
@@ -127,6 +140,12 @@ function toPayload(form: EditForm) {
     invite_style: form.invite_style,
     show_countdown: form.show_countdown,
     show_calendar: form.show_calendar,
+    // No Ilimitado o contratado vai como está: fica guardado para quando o
+    // evento mudar de plano. Limite em branco = sem limite.
+    plan: form.plan,
+    gifts_enabled: form.gifts_enabled,
+    guest_limit: form.guest_limit,
+    admin_limit: form.admin_limit,
     event_date: form.event_date || undefined,
     venue_name: form.venue_name.trim() || undefined,
     venue_name_secondary: form.venue_name_secondary.trim() || undefined,
@@ -138,7 +157,8 @@ function toPayload(form: EditForm) {
     pix_key: form.pix_key.trim() || undefined,
     color_primary: form.color_primary,
     name_font: form.name_font,
-    access_expires_at: form.access_expires_at || undefined,
+    // O Ilimitado não tem prazo: o backend grava NULL de qualquer forma.
+    access_expires_at: form.plan === 'unlimited' ? undefined : form.access_expires_at || undefined,
     price_charged: form.price_charged || undefined,
     last_payment_at: form.last_payment_at || undefined,
     payment_notes: form.payment_notes.trim() || undefined,
@@ -222,6 +242,9 @@ export default function SuperEventDetail() {
   const inviteUrl = `${window.location.origin}/${event.slug}`
   const hasAdmins = event.stats.admins > 0
   const styleLabel = INVITE_STYLE_OPTIONS.find((option) => option.value === resolveInviteStyle(event))?.label
+  const unlimited = form.plan === 'unlimited'
+  const giftsOn = unlimited || form.gifts_enabled
+  const suggestedAccess = suggestedAccessExpiry(form.event_date, form.plan)
 
   const previewEvent: SuperEvent = {
     ...event,
@@ -298,6 +321,7 @@ export default function SuperEventDetail() {
             <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
               {event.subtitle && <span>{event.subtitle} ·</span>}
               <span>/{event.slug}</span>
+              <PlanBadge plan={event.plan} />
               <AccessBadge expiresAt={event.access_expires_at} />
             </span>
           }
@@ -401,7 +425,7 @@ export default function SuperEventDetail() {
 
               <section className={`${panelCardClass} p-5 sm:p-6`}>
                 <div className="flex items-center justify-between gap-3">
-                  <h2 className="font-semibold text-[#3f3450]">Acesso e pagamento</h2>
+                  <h2 className="font-semibold text-[#3f3450]">Plano e pagamento</h2>
                   <button
                     type="button"
                     onClick={() => selectTab('acesso')}
@@ -411,6 +435,13 @@ export default function SuperEventDetail() {
                   </button>
                 </div>
                 <dl className="mt-2 divide-y divide-[#f3eef5]">
+                  <InfoRow label="Plano">{PLAN_LABELS[event.plan]}</InfoRow>
+                  <InfoRow label="Lista de presentes">{event.gifts_enabled ? 'Ligada' : 'Desligada'}</InfoRow>
+                  {event.plan !== 'unlimited' && event.contract.guest_limit !== null && (
+                    <InfoRow label="Faixa de convidados">
+                      {event.stats.people} de {event.contract.guest_limit} pessoas
+                    </InfoRow>
+                  )}
                   <InfoRow label="Acesso ao painel">
                     {event.access_expires_at ? `até ${formatEventDate(event.access_expires_at)}` : 'Sem prazo'}
                   </InfoRow>
@@ -580,10 +611,12 @@ export default function SuperEventDetail() {
                 Traje
                 <input value={form.dress_code} onChange={(e) => update('dress_code', e.target.value)} className={inputClass} />
               </label>
-              <label className={labelClass}>
-                Chave Pix
-                <input value={form.pix_key} onChange={(e) => update('pix_key', e.target.value)} className={inputClass} />
-              </label>
+              {giftsOn && (
+                <label className={labelClass}>
+                  Chave Pix
+                  <input value={form.pix_key} onChange={(e) => update('pix_key', e.target.value)} className={inputClass} />
+                </label>
+              )}
             </Section>
 
             <Section
@@ -643,24 +676,119 @@ export default function SuperEventDetail() {
 
         {tab === 'acesso' && (
           <form onSubmit={handleSubmit} className="space-y-5">
+            <Section icon={<Crown size={18} />} title="Plano" description="Define o prazo de acesso e o que o evento libera.">
+              <PlanPicker value={form.plan} onChange={(plan) => update('plan', plan)} />
+              {unlimited && (
+                <p className="rounded-xl bg-[#231b2e] px-4 py-3 text-sm text-white/80 sm:col-span-2">
+                  <strong className="font-semibold text-presenzo-gold">Interno.</strong> Sem limites e sem prazo de
+                  acesso, e o cliente não vê o nome do plano. O que foi contratado fica guardado e volta a valer se o
+                  evento mudar de plano.
+                </p>
+              )}
+            </Section>
+
+            <Section
+              icon={<PackageCheck size={18} />}
+              title="O que foi contratado"
+              description={
+                unlimited
+                  ? 'Suspenso enquanto o evento estiver no Ilimitado.'
+                  : 'O que o cliente não contratou some do convite e do painel do evento.'
+              }
+            >
+              <div className="sm:col-span-2">
+                <label className={checkboxLabelClass}>
+                  <input
+                    type="checkbox"
+                    checked={giftsOn}
+                    disabled={unlimited}
+                    onChange={(e) => update('gifts_enabled', e.target.checked)}
+                    className="accent-brand-primary"
+                  />
+                  Lista de presentes e chave Pix
+                </label>
+                <span className={hintClass}>
+                  {unlimited
+                    ? 'Incluída no Ilimitado.'
+                    : 'Desligada, some do convite, da confirmação e do painel do evento. Os presentes e as escolhas já feitas ficam guardados.'}
+                </span>
+              </div>
+              <label className={labelClass}>
+                Faixa de convidados (pessoas)
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={unlimited ? '' : form.guest_limit}
+                  disabled={unlimited}
+                  placeholder="Sem limite"
+                  onChange={(e) => update('guest_limit', e.target.value)}
+                  className={`${inputClass} disabled:bg-[#faf8fb]`}
+                />
+                <span className={hintClass}>
+                  Hoje: {event.stats.people} {event.stats.people === 1 ? 'pessoa' : 'pessoas'}, contando titulares e
+                  relacionados. Em branco = sem limite.
+                </span>
+              </label>
+              <label className={labelClass}>
+                Admins
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={unlimited ? '' : form.admin_limit}
+                  disabled={unlimited}
+                  placeholder="Sem limite"
+                  onChange={(e) => update('admin_limit', e.target.value)}
+                  className={`${inputClass} disabled:bg-[#faf8fb]`}
+                />
+                <span className={hintClass}>
+                  Hoje: {event.stats.admins} {event.stats.admins === 1 ? 'admin' : 'admins'}. Só informativo: não impede
+                  convidar mais.
+                </span>
+              </label>
+            </Section>
+
             <Section
               icon={<KeyRound size={18} />}
               title="Acesso ao painel"
               description="Até quando o admin do evento consegue entrar no painel. O convite continua no ar depois disso."
             >
-              <label className={labelClass}>
-                Acesso liberado até
-                <input
-                  type="datetime-local"
-                  value={form.access_expires_at}
-                  onChange={(e) => update('access_expires_at', e.target.value)}
-                  className={inputClass}
-                />
-                <span className={hintClass}>Em branco = nunca expira.</span>
-              </label>
-              <div className="flex items-center sm:pt-6">
-                <AccessBadge expiresAt={event.access_expires_at} />
-              </div>
+              {unlimited ? (
+                <p className="text-sm text-[#6b5d80] sm:col-span-2">
+                  Sem prazo enquanto o evento estiver no Ilimitado. Se mudar de plano, escolha uma data nova aqui.
+                </p>
+              ) : (
+                <>
+                  <label className={labelClass}>
+                    Acesso liberado até
+                    <input
+                      type="datetime-local"
+                      value={form.access_expires_at}
+                      onChange={(e) => update('access_expires_at', e.target.value)}
+                      className={inputClass}
+                    />
+                    <span className={hintClass}>Em branco = nunca expira.</span>
+                  </label>
+                  <div className="flex items-center sm:pt-6">
+                    <AccessBadge expiresAt={event.access_expires_at} />
+                  </div>
+                  {suggestedAccess && suggestedAccess !== form.access_expires_at && (
+                    <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-[#6b5d80] sm:col-span-2">
+                      <span>
+                        Pelo plano {PLAN_LABELS[form.plan]}: até {formatEventDate(suggestedAccess)}.
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => update('access_expires_at', suggestedAccess)}
+                        className="cursor-pointer font-medium text-brand-primary hover:underline"
+                      >
+                        Usar data sugerida
+                      </button>
+                    </p>
+                  )}
+                </>
+              )}
             </Section>
 
             <Section icon={<Wallet size={18} />} title="Financeiro" description="Visível só para o super-admin.">

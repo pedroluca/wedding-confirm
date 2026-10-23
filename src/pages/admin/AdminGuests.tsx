@@ -16,6 +16,7 @@ import {
 import { api } from '../../lib/api'
 import { useAdminAuth } from '../../lib/adminAuthContext'
 import { useAdminEvent } from '../../lib/adminEventContext'
+import { giftsEnabled } from '../../lib/plans'
 import { StatusBadge } from '../../components/StatusBadge'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { PageHeader } from '../../components/panel/ui'
@@ -299,7 +300,9 @@ export default function AdminGuests() {
 
   const totalTitulares = guests.length
   const totalPessoas = guests.reduce((total, guest) => total + 1 + guest.dependents.length, 0)
-  const totalViewedGifts = guests.filter((guest) => guest.gifts_views > 0).length
+  // Sem a lista de presentes no plano, os acessos a ela também saem da tela.
+  const showGifts = giftsEnabled(event)
+  const totalViewedGifts = showGifts ? guests.filter((guest) => guest.gifts_views > 0).length : 0
 
   const query = normalize(search)
   const activeRoleFilter = ROLE_FILTERS.find((filter) => filter.value === roleFilter)
@@ -559,7 +562,7 @@ export default function AdminGuests() {
                               ))}
                             </select>
                           )}
-                          {guest.gifts_views > 0 && (
+                          {showGifts && guest.gifts_views > 0 && (
                             <span
                               title={giftsViewsTitle(guest)}
                               className="inline-flex items-center gap-1 text-xs text-[#8b7a9c]"

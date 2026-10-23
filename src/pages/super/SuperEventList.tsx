@@ -6,9 +6,11 @@ import { useAdminAuth } from '../../lib/adminAuthContext'
 import { accessStatus, type AccessState } from '../../lib/eventAccess'
 import { parseMysqlDate } from '../../lib/eventFormat'
 import { EVENT_TYPE_OPTIONS, EVENT_TYPES, formatHostNames } from '../../lib/eventTypes'
+import { PLAN_OPTIONS } from '../../lib/plans'
 import { AccessBadge } from '../../components/panel/AccessBadge'
+import { PlanBadge } from '../../components/panel/PlanBadge'
 import { EmptyState, Meter, PageHeader, panelCardClass, primaryButtonClass } from '../../components/panel/ui'
-import type { EventType, SuperEvent } from '../../types'
+import type { EventPlan, EventType, SuperEvent } from '../../types'
 
 const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 const shortDate = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -36,6 +38,7 @@ export default function SuperEventList() {
   const [error, setError] = useState(false)
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<EventType | 'todos'>('todos')
+  const [planFilter, setPlanFilter] = useState<EventPlan | 'todos'>('todos')
   const [accessFilter, setAccessFilter] = useState<AccessFilter>('todos')
 
   useEffect(() => {
@@ -54,11 +57,12 @@ export default function SuperEventList() {
       const accessState = state === 'none' ? 'active' : state
       return (
         (typeFilter === 'todos' || event.event_type === typeFilter) &&
+        (planFilter === 'todos' || event.plan === planFilter) &&
         (accessFilter === 'todos' || accessState === accessFilter) &&
         (!term || normalize(`${formatHostNames(event)} ${event.subtitle ?? ''} ${event.slug}`).includes(term))
       )
     })
-  }, [events, search, typeFilter, accessFilter])
+  }, [events, search, typeFilter, planFilter, accessFilter])
 
   return (
     <div>
@@ -94,6 +98,19 @@ export default function SuperEventList() {
           {EVENT_TYPE_OPTIONS.map((type) => (
             <option key={type} value={type}>
               {EVENT_TYPES[type].label}
+            </option>
+          ))}
+        </select>
+        <select
+          value={planFilter}
+          onChange={(e) => setPlanFilter(e.target.value as EventPlan | 'todos')}
+          aria-label="Filtrar por plano"
+          className="cursor-pointer rounded-full border border-[#ece6f0] bg-white px-4 py-2.5 text-sm text-[#3f3450] outline-none focus:border-brand-primary"
+        >
+          <option value="todos">Todos os planos</option>
+          {PLAN_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
             </option>
           ))}
         </select>
@@ -148,7 +165,10 @@ export default function SuperEventList() {
                     className={`grid grid-cols-1 gap-x-4 gap-y-2 px-5 py-4 transition hover:bg-[#faf8fb] md:items-center ${COLUMNS}`}
                   >
                     <div className="min-w-0">
-                      <p className="font-medium text-balance break-words text-[#3f3450]">{formatHostNames(event)}</p>
+                      <p className="flex flex-wrap items-center gap-x-2 gap-y-1 font-medium text-balance break-words text-[#3f3450]">
+                        {formatHostNames(event)}
+                        <PlanBadge plan={event.plan} />
+                      </p>
                       <p className="text-xs break-words text-[#8b7a9c]">
                         {EVENT_TYPES[event.event_type].label}
                         {event.subtitle && ` · ${event.subtitle}`} · /{event.slug}

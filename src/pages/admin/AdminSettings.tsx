@@ -6,6 +6,7 @@ import { useAdminEvent, useSetAdminEvent } from '../../lib/adminEventContext'
 import { NAME_FONT_CLASSES_COMPACT, NAME_FONT_OPTIONS } from '../../lib/eventFormat'
 import { EVENT_TYPES } from '../../lib/eventTypes'
 import { resolveInviteStyle } from '../../lib/inviteStyles'
+import { giftsEnabled, PLAN_LABELS } from '../../lib/plans'
 import { resizeImage } from '../../lib/resizeImage'
 import {
   buildShareMessage,
@@ -169,6 +170,8 @@ export default function AdminSettings() {
   const [venuePlaceholder, secondVenuePlaceholder] = typeProfile.venuePlaceholders
   const shownCover = coverPreview ?? event.cover_photo_url
   const defaultShareMessage = DEFAULT_SHARE_MESSAGE[event.event_type]
+  // O Ilimitado é interno: o cliente não vê o nome do plano, só que o acesso não tem prazo.
+  const planLabel = event.plan && event.plan !== 'unlimited' ? PLAN_LABELS[event.plan] : null
 
   // Prévias (mensagem de envio, miniaturas da abertura) com o que está no
   // formulário, mesmo antes de salvar.
@@ -267,6 +270,7 @@ export default function AdminSettings() {
           <>
             Personalize as informações e a cor que aparecem para os convidados no convite.{' '}
             <span className="font-medium text-brand-primary">
+              {planLabel && `Plano ${planLabel}. `}
               {event.access_expires_at
                 ? `Seu acesso ao painel está liberado até ${formatAccessExpiresAt(event.access_expires_at)}.`
                 : 'Seu acesso ao painel não tem prazo de expiração.'}
@@ -458,15 +462,19 @@ export default function AdminSettings() {
             />
           </label>
 
-          <label className={labelClass}>
-            Chave Pix
-            <input
-              value={form.pix_key}
-              onChange={(e) => setForm((prev) => ({ ...prev, pix_key: e.target.value }))}
-              className={inputClass}
-            />
-            <span className={hintClass}>Aparece na lista de presentes.</span>
-          </label>
+          {/* Escondida com a lista de presentes desligada, mas continua no
+              formulário e é salva como está. */}
+          {giftsEnabled(event) && (
+            <label className={labelClass}>
+              Chave Pix
+              <input
+                value={form.pix_key}
+                onChange={(e) => setForm((prev) => ({ ...prev, pix_key: e.target.value }))}
+                className={inputClass}
+              />
+              <span className={hintClass}>Aparece na lista de presentes.</span>
+            </label>
+          )}
         </Section>
 
         <Section

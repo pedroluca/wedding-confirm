@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { CircleCheck, CircleX, Clock, Gift } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAdminAuth } from '../../lib/adminAuthContext'
+import { useAdminEvent } from '../../lib/adminEventContext'
 import { formatGiftsLastView, giftsViewsTitle } from '../../lib/giftsViews'
+import { giftsEnabled } from '../../lib/plans'
 import { StatusBadge } from '../../components/StatusBadge'
 import { PageHeader, panelCardClass, StatCard } from '../../components/panel/ui'
 import type { AdminGuest, GuestStatus } from '../../types'
@@ -30,6 +32,9 @@ const FILTERS: { key: Filter; label: string }[] = [
 export default function AdminConfirmations() {
   const { session } = useAdminAuth()
   const token = session?.token ?? null
+  // Sem a lista de presentes no plano, as métricas dela também saem da tela.
+  const showGifts = giftsEnabled(useAdminEvent())
+  const filters = showGifts ? FILTERS : FILTERS.filter((f) => f.key !== 'presentes')
   const [guests, setGuests] = useState<AdminGuest[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<Filter>('todos')
@@ -74,11 +79,15 @@ export default function AdminConfirmations() {
     <div>
       <PageHeader
         title="Lista de presenças"
-        description="Quem já respondeu o convite, quem falta e quem abriu a lista de presentes."
+        description={
+          showGifts
+            ? 'Quem já respondeu o convite, quem falta e quem abriu a lista de presentes.'
+            : 'Quem já respondeu o convite e quem falta.'
+        }
       />
 
       {!loading && (
-        <div className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className={`mt-8 grid grid-cols-2 gap-3 ${showGifts ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
           <StatCard
             label="Confirmados"
             value={counts.confirmado}
@@ -87,17 +96,19 @@ export default function AdminConfirmations() {
           />
           <StatCard label="Pendentes" value={counts.pendente} icon={Clock} />
           <StatCard label="Recusados" value={counts.recusado} icon={CircleX} />
-          <StatCard
-            label="Viram os presentes"
-            value={counts.presentes}
-            hint={`de ${guests.length} ${guests.length === 1 ? 'convite' : 'convites'}`}
-            icon={Gift}
-          />
+          {showGifts && (
+            <StatCard
+              label="Viram os presentes"
+              value={counts.presentes}
+              hint={`de ${guests.length} ${guests.length === 1 ? 'convite' : 'convites'}`}
+              icon={Gift}
+            />
+          )}
         </div>
       )}
 
       <div className="mt-6 flex flex-wrap gap-2">
-        {FILTERS.map((f) => (
+        {filters.map((f) => (
           <button
             key={f.key}
             type="button"
@@ -124,9 +135,11 @@ export default function AdminConfirmations() {
                 <th className="px-4 py-3 font-medium">Nome</th>
                 <th className="px-4 py-3 font-medium">Grupo</th>
                 <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium" title="Quantas vezes o link do convite abriu a lista de presentes">
-                  Presentes
-                </th>
+                {showGifts && (
+                  <th className="px-4 py-3 font-medium" title="Quantas vezes o link do convite abriu a lista de presentes">
+                    Presentes
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -137,28 +150,30 @@ export default function AdminConfirmations() {
                   <td className="px-4 py-3">
                     <StatusBadge status={row.status} />
                   </td>
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    {row.gifts && row.gifts.gifts_views > 0 ? (
-                      <div title={giftsViewsTitle(row.gifts)}>
-                        <span className="inline-flex items-center gap-1.5 font-medium text-brand-primary">
-                          <Gift size={14} aria-hidden />
-                          {row.gifts.gifts_views}x
+                  {showGifts && (
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {row.gifts && row.gifts.gifts_views > 0 ? (
+                        <div title={giftsViewsTitle(row.gifts)}>
+                          <span className="inline-flex items-center gap-1.5 font-medium text-brand-primary">
+                            <Gift size={14} aria-hidden />
+                            {row.gifts.gifts_views}x
+                          </span>
+                          {formatGiftsLastView(row.gifts) && (
+                            <span className="block text-xs text-[#8b7a9c]">{formatGiftsLastView(row.gifts)}</span>
+                          )}
+                        </div>
+                      ) : row.gifts ? (
+                        <span className="text-[#c4b6d1]" aria-label="Não abriu a lista de presentes">
+                          —
                         </span>
-                        {formatGiftsLastView(row.gifts) && (
-                          <span className="block text-xs text-[#8b7a9c]">{formatGiftsLastView(row.gifts)}</span>
-                        )}
-                      </div>
-                    ) : row.gifts ? (
-                      <span className="text-[#c4b6d1]" aria-label="Não abriu a lista de presentes">
-                        —
-                      </span>
-                    ) : null}
-                  </td>
+                      ) : null}
+                    </td>
+                  )}
                 </tr>
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-4 py-6 text-center text-[#8b7a9c]">
+                  <td colSpan={showGifts ? 4 : 3} className="px-4 py-6 text-center text-[#8b7a9c]">
                     {filter === 'presentes' ? 'Ninguém abriu a lista de presentes ainda.' : 'Nenhum registro.'}
                   </td>
                 </tr>

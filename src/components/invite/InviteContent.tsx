@@ -17,6 +17,7 @@ import { useEvent } from '../../lib/eventContext'
 import { NAME_FONT_CLASSES_COMPACT, parseMysqlDate } from '../../lib/eventFormat'
 import { EVENT_TYPES, hasTwoHosts } from '../../lib/eventTypes'
 import { guestRoleOptions } from '../../lib/guestRoles'
+import { giftsEnabled } from '../../lib/plans'
 import type { EventType, GuestInviteResponse } from '../../types'
 import { AddToCalendar } from './AddToCalendar'
 import { Countdown } from './Countdown'
@@ -108,6 +109,7 @@ export function InviteContent({
   // Ligadas a menos que o admin desligue (undefined = API anterior aos campos).
   const showCountdown = event.show_countdown !== false
   const showCalendar = event.show_calendar !== false
+  const showGifts = giftsEnabled(event)
 
   const answered = data.members.every((member) => member.status !== 'pendente')
   const confirmedCount = data.members.filter((member) => member.status === 'confirmado').length
@@ -216,14 +218,16 @@ export function InviteContent({
           >
             {answered ? 'Alterar confirmação' : 'Confirmar presença'}
           </button>
-          <Link
-            to={`/${eventSlug}/${guestSlug}/presentes`}
-            state={{ from: 'invite' }}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-full border border-brand-primary-soft bg-white/70 px-8 py-3.5 font-semibold text-brand-primary transition hover:bg-brand-primary-soft"
-          >
-            <Gift size={18} />
-            Lista de presentes
-          </Link>
+          {showGifts && (
+            <Link
+              to={`/${eventSlug}/${guestSlug}/presentes`}
+              state={{ from: 'invite' }}
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-full border border-brand-primary-soft bg-white/70 px-8 py-3.5 font-semibold text-brand-primary transition hover:bg-brand-primary-soft"
+            >
+              <Gift size={18} />
+              Lista de presentes
+            </Link>
+          )}
         </Reveal>
 
         <footer className="pt-4 text-center">

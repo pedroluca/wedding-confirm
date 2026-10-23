@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { Navigate } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { useAdminAuth } from '../../lib/adminAuthContext'
+import { useAdminEvent } from '../../lib/adminEventContext'
+import { giftsEnabled } from '../../lib/plans'
 import { PageHeader } from '../../components/panel/ui'
 import type { AdminGift, GiftTemplate } from '../../types'
 
@@ -148,7 +151,14 @@ function toFormData(form: GiftForm): FormData {
   return data
 }
 
+// Lista de presentes desligada no plano: o item some do menu e o endereço
+// volta pro início do painel.
 export default function AdminGifts() {
+  const event = useAdminEvent()
+  return giftsEnabled(event) ? <AdminGiftsPage /> : <Navigate to="/admin" replace />
+}
+
+function AdminGiftsPage() {
   const { session } = useAdminAuth()
   const token = session?.token ?? null
   const [gifts, setGifts] = useState<AdminGift[]>([])

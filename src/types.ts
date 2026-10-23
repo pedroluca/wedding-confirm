@@ -17,6 +17,12 @@ export type NameFont = 'sans' | 'fleur' | 'pinyon'
 /** Abertura do convite: direto no conteúdo ou um dos envelopes. */
 export type InviteStyle = 'direct' | 'letter' | 'doors' | 'vertical'
 
+/**
+ * Plano do evento. O Ilimitado é interno (nunca aparece em venda nem para o
+ * cliente) e o super-admin pode colocar qualquer evento nele.
+ */
+export type EventPlan = 'standard' | 'premium' | 'unlimited'
+
 export type PublicEvent = {
   slug: string
   event_type: EventType
@@ -42,9 +48,12 @@ export type PublicEvent = {
   /** Seções opcionais da tela interna do convite. */
   show_countdown: boolean
   show_calendar: boolean
+  /** Lista de presentes e Pix no ar, já considerando o plano. */
+  gifts_enabled: boolean
 }
 
 export type AdminEvent = PublicEvent & {
+  plan: EventPlan
   access_expires_at: string | null
   /** Modelo da mensagem de envio do convite ({primeiro_nome}, {link}...). null = texto padrão. */
   share_message: string | null
@@ -61,8 +70,19 @@ export type EventStats = {
   gift_claims: number
 }
 
+/**
+ * O que foi contratado, como está gravado. O plano Ilimitado passa por cima
+ * (libera tudo), sem apagar esses valores. Limite null = sem limite.
+ */
+export type EventContract = {
+  gifts_enabled: boolean
+  guest_limit: number | null
+  admin_limit: number | null
+}
+
 export type SuperEvent = AdminEvent & {
   id: number
+  contract: EventContract
   price_charged: number | null
   last_payment_at: string | null
   payment_notes: string | null
