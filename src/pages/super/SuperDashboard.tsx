@@ -184,7 +184,7 @@ export default function SuperDashboard() {
                         </p>
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate font-medium text-[#3f3450]">{formatHostNames(event)}</p>
+                        <p className="font-medium text-balance break-words text-[#3f3450]">{formatHostNames(event)}</p>
                         <p className="text-xs text-[#8b7a9c]">
                           {EVENT_TYPES[event.event_type].label} · {inWords(daysUntil(date, now))}
                         </p>
@@ -238,7 +238,7 @@ export default function SuperDashboard() {
                   <li key={event.id}>
                     <EventLink event={event}>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate font-medium text-[#3f3450]">{formatHostNames(event)}</p>
+                        <p className="font-medium text-balance break-words text-[#3f3450]">{formatHostNames(event)}</p>
                         <p className="text-xs text-[#8b7a9c]">{EVENT_TYPES[event.event_type].label}</p>
                       </div>
                       <AccessBadge expiresAt={event.access_expires_at} />
@@ -260,7 +260,7 @@ export default function SuperDashboard() {
                   <li key={event.id}>
                     <EventLink event={event}>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate font-medium text-[#3f3450]">{formatHostNames(event)}</p>
+                        <p className="font-medium text-balance break-words text-[#3f3450]">{formatHostNames(event)}</p>
                         <p className="text-xs text-[#8b7a9c]">
                           {shortDate.format(parseMysqlDate(event.created_at) ?? new Date())}
                           {event.price_charged !== null && ` · ${currency.format(event.price_charged)}`}

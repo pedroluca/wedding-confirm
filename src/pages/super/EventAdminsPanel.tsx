@@ -189,8 +189,8 @@ export function EventAdminsPanel({ eventId, onChange }: { eventId: number; onCha
                       {admin.name.trim().charAt(0).toUpperCase()}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium text-[#3f3450]">{admin.name}</p>
-                      <p className="truncate text-sm text-[#8b7a9c]">
+                      <p className="font-medium break-words text-[#3f3450]">{admin.name}</p>
+                      <p className="text-sm break-all text-[#8b7a9c]">
                         {admin.email} · desde {dateFormatter.format(new Date(admin.created_at.replace(' ', 'T')))}
                       </p>
                     </div>

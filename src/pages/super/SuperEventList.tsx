@@ -148,8 +148,8 @@ export default function SuperEventList() {
                     className={`grid grid-cols-1 gap-x-4 gap-y-2 px-5 py-4 transition hover:bg-[#faf8fb] md:items-center ${COLUMNS}`}
                   >
                     <div className="min-w-0">
-                      <p className="truncate font-medium text-[#3f3450]">{formatHostNames(event)}</p>
-                      <p className="truncate text-xs text-[#8b7a9c]">
+                      <p className="font-medium text-balance break-words text-[#3f3450]">{formatHostNames(event)}</p>
+                      <p className="text-xs break-words text-[#8b7a9c]">
                         {EVENT_TYPES[event.event_type].label}
                         {event.subtitle && ` · ${event.subtitle}`} · /{event.slug}
                       </p>

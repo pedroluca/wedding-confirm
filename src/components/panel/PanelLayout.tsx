@@ -128,7 +128,7 @@ export function PanelLayout({
         </nav>
 
         <div className={`border-t px-5 py-4 ${theme.divider}`}>
-          <p className="truncate text-sm font-medium">{userName}</p>
+          <p className="text-sm font-medium break-words">{userName}</p>
           <button
             type="button"
             onClick={onLogout}

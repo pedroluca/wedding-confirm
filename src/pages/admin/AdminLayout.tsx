@@ -28,7 +28,7 @@ function EventCard({ event }: { event: AdminEvent }) {
       <p className="text-[11px] font-semibold tracking-wide text-brand-primary uppercase">
         {EVENT_TYPES[event.event_type].label}
       </p>
-      <p className="mt-0.5 truncate font-semibold text-[#3f3450]">{formatHostNames(event)}</p>
+      <p className="mt-0.5 font-semibold text-balance break-words text-[#3f3450]">{formatHostNames(event)}</p>
       {date && <p className="text-xs text-[#8b7a9c]">{dateFormatter.format(date)}</p>}
       <a
         href={`/${event.slug}`}

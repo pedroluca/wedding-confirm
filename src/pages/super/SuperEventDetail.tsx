@@ -323,8 +323,11 @@ export default function SuperEventDetail() {
         {enterError && <p className="mt-3 text-sm text-rose-600">{enterError}</p>}
       </div>
 
-      <div className="mt-8 -mx-4 overflow-x-auto border-b border-[#ece6f0] px-4 sm:mx-0 sm:px-0" role="tablist">
-        <div className="flex gap-1">
+      {/* A linha de baixo é uma sombra interna (a aba ativa pinta por cima):
+          com borda + margem negativa sobrava 1px de altura e o overflow-x
+          ligava uma barra de rolagem vertical. */}
+      <div className="mt-8 -mx-4 overflow-x-auto overflow-y-hidden px-4 sm:mx-0 sm:px-0">
+        <div className="flex w-max min-w-full gap-1 shadow-[inset_0_-1px_0_#ece6f0]" role="tablist">
           {TABS.map((item) => (
             <button
               key={item.value}
@@ -332,7 +335,7 @@ export default function SuperEventDetail() {
               role="tab"
               aria-selected={tab === item.value}
               onClick={() => selectTab(item.value)}
-              className={`cursor-pointer -mb-px border-b-2 px-4 py-3 text-sm font-medium whitespace-nowrap transition ${
+              className={`cursor-pointer border-b-2 px-4 py-3 text-sm font-medium whitespace-nowrap transition ${
                 tab === item.value
                   ? 'border-brand-primary text-brand-primary'
                   : 'border-transparent text-[#8b7a9c] hover:text-[#3f3450]'
