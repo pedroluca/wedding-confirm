@@ -87,11 +87,12 @@ export function WaxSeal({ className }: { className?: string }) {
   const id = `seal${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
   const textRef = useRef<SVGTextElement>(null)
 
+  // Duas iniciais lado a lado, sem "&", como num sinete.
   const initials = event.host_name_secondary
-    ? `${initialOf(event.host_name)}&${initialOf(event.host_name_secondary)}`
+    ? `${initialOf(event.host_name)}${initialOf(event.host_name_secondary)}`
     : initialOf(event.host_name)
   const isScript = event.name_font !== 'sans'
-  const fontSize = event.host_name_secondary ? (isScript ? 30 : 21) : isScript ? 40 : 30
+  const fontSize = event.host_name_secondary ? (isScript ? 36 : 26) : isScript ? 40 : 30
   const letterSpacing = isScript ? 0 : 1
 
   const fitKey = `${event.name_font}|${initials}`

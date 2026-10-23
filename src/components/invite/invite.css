@@ -402,8 +402,11 @@
   inset: 0;
 }
 
+/* 1px menor que as abas em cada lado: com zoom de tela fracionado (125%,
+   150%) as abas, que são camadas 3D, e o cartão arredondam pra pixels
+   diferentes, e a borda do cartão aparecia pra fora da aba fechada. */
 .gate-card {
-  inset: 0;
+  inset: 1px;
   display: flex;
   align-items: center;
   justify-content: center;
