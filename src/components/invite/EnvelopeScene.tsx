@@ -67,6 +67,29 @@ export function EnvelopeScene({
   )
 }
 
+/**
+ * Nomes no cartão de dentro do envelope, como na capa do convite. O tamanho
+ * acompanha a largura do cartão (.envelope-card-names em invite.css).
+ */
+export function EnvelopeCardNames() {
+  const event = useEvent()
+  const isScript = event.name_font !== 'sans'
+
+  return (
+    <span
+      className={`envelope-card-names ${isScript ? 'is-script' : ''} ${NAME_FONT_FAMILY[event.name_font]} text-[#3f3450]`}
+    >
+      <span className="block">{event.host_name}</span>
+      {event.host_name_secondary && (
+        <>
+          <span className="block font-serif text-[0.55em] text-brand-primary italic">&amp;</span>
+          <span className="block">{event.host_name_secondary}</span>
+        </>
+      )}
+    </span>
+  )
+}
+
 /** Iniciais no cartão de dentro do envelope. */
 export function EnvelopeMonogram() {
   const event = useEvent()

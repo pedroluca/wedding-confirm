@@ -409,6 +409,26 @@
   border-radius: 6px;
   background: #fffdf9;
   box-shadow: 0 22px 44px -22px rgb(63 52 80 / 0.45);
+  container-type: inline-size;
+}
+
+/* Nomes no cartão (EnvelopeCardNames): em cqw pra caber do celular ao
+   desktop; o px antes é o tamanho em navegador sem container query. As
+   fontes de caligrafia são mais miúdas e pedem um tamanho maior. */
+.envelope-card-names {
+  position: relative;
+  padding: 0 12%;
+  font-size: 22px;
+  font-size: 6.5cqw;
+  line-height: 1.1;
+  text-align: center;
+  text-wrap: balance;
+}
+
+.envelope-card-names.is-script {
+  font-size: 32px;
+  font-size: 9.5cqw;
+  line-height: 1.05;
 }
 
 .gate-card::before {

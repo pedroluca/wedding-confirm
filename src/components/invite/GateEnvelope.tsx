@@ -1,4 +1,4 @@
-import { EnvelopeMonogram, EnvelopeScene, EnvelopeSeal, type EnvelopeProps } from './EnvelopeScene'
+import { EnvelopeCardNames, EnvelopeScene, EnvelopeSeal, type EnvelopeProps } from './EnvelopeScene'
 
 /**
  * Estilos "Portas" e "Vertical": envelope de abertura central. Duas abas se
@@ -12,7 +12,7 @@ export function GateEnvelope({ orientation, ...props }: EnvelopeProps & { orient
       {/* Cartão, abas e selo juntos, pra aproximar tudo de uma vez no fim. */}
       <span className="gate-body">
         <span className="gate-card">
-          <EnvelopeMonogram />
+          <EnvelopeCardNames />
         </span>
 
         {/* Cada aba tem a frente e o forro (verso), que aparece quando ela passa de 90°. */}
