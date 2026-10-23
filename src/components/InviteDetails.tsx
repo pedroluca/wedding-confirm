@@ -1,29 +1,5 @@
 import { useEvent } from '../lib/eventContext'
-import type { NameFont } from '../types'
-
-const NAME_FONT_CLASSES: Record<NameFont, string> = {
-  sans: 'font-sans text-5xl',
-  fleur: 'font-fleur text-6xl',
-  pinyon: 'font-pinyon text-6xl',
-}
-
-const NAME_FONT_CLASSES_COMPACT: Record<NameFont, string> = {
-  sans: 'font-sans text-2xl',
-  fleur: 'font-fleur text-4xl',
-  pinyon: 'font-pinyon text-4xl',
-}
-
-const dateFormatter = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })
-const timeFormatter = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' })
-
-function formatEventDate(mysqlDateTime: string): string {
-  // DATETIME do MySQL chega como "2026-12-13 10:30:00" (sem timezone); troca
-  // o espaço por "T" pra evitar que o browser interprete o formato errado.
-  const date = new Date(mysqlDateTime.replace(' ', 'T'))
-  if (Number.isNaN(date.getTime())) return mysqlDateTime
-
-  return `${dateFormatter.format(date)} às ${timeFormatter.format(date).replace(':', 'h')}`
-}
+import { formatEventDate, NAME_FONT_CLASSES, NAME_FONT_CLASSES_COMPACT } from '../lib/eventFormat'
 
 function MaybeMapLink({ href, children }: { href: string | null; children: string }) {
   if (!href) return children

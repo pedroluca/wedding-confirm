@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { NavLink, Navigate, Outlet } from 'react-router-dom'
 import { api, ApiError } from '../../lib/api'
 import { useAdminAuth } from '../../lib/adminAuthContext'
-import { AdminEventContext } from '../../lib/adminEventContext'
+import { AdminEventContext, AdminEventSetterContext } from '../../lib/adminEventContext'
 import { AccessExpired } from '../../components/AccessExpired'
 import type { AdminEvent } from '../../types'
 
@@ -88,9 +88,11 @@ export default function AdminLayout() {
         ) : expired ? (
           <AccessExpired />
         ) : event ? (
-          <AdminEventContext.Provider value={event}>
-            <Outlet />
-          </AdminEventContext.Provider>
+          <AdminEventSetterContext.Provider value={setEvent}>
+            <AdminEventContext.Provider value={event}>
+              <Outlet />
+            </AdminEventContext.Provider>
+          </AdminEventSetterContext.Provider>
         ) : (
           <p className="text-[#6b5d80]">Não foi possível carregar os dados do evento.</p>
         )}

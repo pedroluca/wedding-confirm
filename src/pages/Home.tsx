@@ -1,6 +1,6 @@
 import { CheckCircle2, Gift, Heart, MessageCircle, Palette, PartyPopper } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { DevCredit } from '../components/DevCredit'
+import { Copyright } from '../components/DevCredit'
 import { PageShell } from '../components/PageShell'
 
 // TODO: trocar pelo número real (com DDI+DDD, só dígitos) antes de publicar.
@@ -37,7 +37,7 @@ const FEATURES = [
 
 export default function Home() {
   return (
-    <PageShell footer={<DevCredit strong />}>
+    <PageShell footer={<Copyright />}>
       <div className="w-full max-w-4xl">
         {/* Hero */}
         <section className="text-center">

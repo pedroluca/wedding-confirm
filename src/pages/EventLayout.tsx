@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Outlet, useParams } from 'react-router-dom'
 import { api, ApiError } from '../lib/api'
 import { EventContext } from '../lib/eventContext'
+import { MusicProvider } from '../lib/music'
 import { PageShell } from '../components/PageShell'
 import type { PublicEvent } from '../types'
 
@@ -83,7 +84,9 @@ export default function EventLayout() {
 
   return (
     <EventContext.Provider value={event}>
-      <Outlet />
+      <MusicProvider src={event.music_url}>
+        <Outlet />
+      </MusicProvider>
     </EventContext.Provider>
   )
 }

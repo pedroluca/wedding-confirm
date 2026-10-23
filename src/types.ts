@@ -1,5 +1,8 @@
 export type GuestStatus = 'pendente' | 'confirmado' | 'recusado'
 
+/** Papel do convidado titular no evento (guests.role), destacado no convite. */
+export type GuestRole = 'convidado' | 'padrinho' | 'madrinha' | 'pais' | 'especial'
+
 export type AdminInfo = {
   id: number
   event_id: number | null
@@ -23,14 +26,19 @@ export type PublicEvent = {
   maps_url: string | null
   maps_url_secondary: string | null
   dress_code: string | null
+  invite_message: string | null
   pix_key: string | null
   logo_url: string | null
+  cover_photo_url: string | null
+  music_url: string | null
   color_primary: string
   name_font: NameFont
 }
 
 export type AdminEvent = PublicEvent & {
   access_expires_at: string | null
+  /** Modelo da mensagem de envio do convite ({primeiro_nome}, {link}...). null = texto padrão. */
+  share_message: string | null
 }
 
 export type SuperEvent = AdminEvent & {
@@ -49,7 +57,7 @@ export type GuestMember = {
 }
 
 export type GuestInviteResponse = {
-  titular: { id: number; name: string }
+  titular: { id: number; name: string; role: GuestRole }
   members: GuestMember[]
   has_dependents: boolean
 }
@@ -66,8 +74,12 @@ export type AdminGuest = {
   id: number
   name: string
   slug: string
+  role: GuestRole
   status: GuestStatus
   confirmed_at: string | null
+  /** Quantas vezes o link abriu a lista de presentes (métrica só do admin). */
+  gifts_views: number
+  gifts_last_viewed_at: string | null
   created_at: string
   dependents: AdminDependent[]
 }

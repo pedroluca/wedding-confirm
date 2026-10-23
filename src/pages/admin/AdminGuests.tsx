@@ -1,14 +1,38 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { Check, CircleAlert, Copy, CornerDownRight, Pencil, Plus, Search, Trash2, Users, X } from 'lucide-react'
+import {
+  Check,
+  CircleAlert,
+  Copy,
+  CornerDownRight,
+  Gift,
+  MessageSquareText,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+  Users,
+  X,
+} from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAdminAuth } from '../../lib/adminAuthContext'
 import { useAdminEvent } from '../../lib/adminEventContext'
 import { StatusBadge } from '../../components/StatusBadge'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
-import type { AdminDependent, AdminGuest, GuestStatus } from '../../types'
+import { giftsViewsTitle } from '../../lib/giftsViews'
+import { GUEST_ROLE_OPTIONS, GUEST_ROLE_STYLES } from '../../lib/guestRoles'
+import { buildShareMessage, resolveShareTemplate } from '../../lib/shareMessage'
+import type { AdminDependent, AdminGuest, GuestRole, GuestStatus } from '../../types'
 
 // Mesmo limite do backend (require_string(..., 150) em handlers/admin_guests.php).
 const NAME_MAX_LENGTH = 150
+
+type RoleFilter = 'todos' | 'padrinhos' | 'pais' | 'especial'
+
+const ROLE_FILTERS: { value: Exclude<RoleFilter, 'todos'>; label: string; roles: GuestRole[] }[] = [
+  { value: 'padrinhos', label: 'Padrinhos e madrinhas', roles: ['padrinho', 'madrinha'] },
+  { value: 'pais', label: 'Pais', roles: ['pais'] },
+  { value: 'especial', label: 'Especiais', roles: ['especial'] },
+]
 
 /** Ignora acentos e caixa, para busca e detecção de nome repetido. */
 const normalize = (value: string) =>
@@ -83,8 +107,12 @@ export default function AdminGuests() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
   const [search, setSearch] = useState('')
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>('todos')
+  // Papel (padrinho, pais...) só faz sentido em casamento.
+  const isWedding = event.event_type === 'wedding'
 
   const [newName, setNewName] = useState('')
+  const [newRole, setNewRole] = useState<GuestRole>('convidado')
   const [creating, setCreating] = useState(false)
   const newNameRef = useRef<HTMLInputElement>(null)
   const [highlightId, setHighlightId] = useState<number | null>(null)
@@ -100,6 +128,7 @@ export default function AdminGuests() {
   const [deleting, setDeleting] = useState(false)
 
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null)
+  const [copiedMessageFor, setCopiedMessageFor] = useState<number | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const toastTimer = useRef<number | undefined>(undefined)
 
@@ -125,13 +154,15 @@ export default function AdminGuests() {
     try {
       const res = await api.post<{ guest: Omit<AdminGuest, 'confirmed_at' | 'created_at'> }>(
         '/admin/guests',
-        { name },
+        { name, role: newRole },
         token
       )
       const guest: AdminGuest = { ...res.guest, confirmed_at: null, created_at: new Date().toISOString() }
       setGuests((prev) => [guest, ...prev])
       setNewName('')
+      setNewRole('convidado')
       setSearch('')
+      setRoleFilter('todos')
       setHighlightId(guest.id)
       setTimeout(() => setHighlightId((current) => (current === guest.id ? null : current)), 2500)
     } catch {
@@ -203,6 +234,19 @@ export default function AdminGuests() {
     }
   }
 
+  const handleRoleChange = async (id: number, role: GuestRole) => {
+    const previous = guests.find((guest) => guest.id === id)?.role
+    setGuests((prev) => prev.map((guest) => (guest.id === id ? { ...guest, role } : guest)))
+    try {
+      await api.put(`/admin/guests/${id}`, { role }, token)
+    } catch {
+      if (previous) {
+        setGuests((prev) => prev.map((guest) => (guest.id === id ? { ...guest, role: previous } : guest)))
+      }
+      showError('Não foi possível alterar o papel do convidado.')
+    }
+  }
+
   const handleDelete = async () => {
     if (!pendingDelete) return
     const { id, titularId } = pendingDelete
@@ -235,16 +279,40 @@ export default function AdminGuests() {
     })
   }
 
+  // Mensagem de envio (Configurações) com o nome e o link deste convite.
+  const copyMessage = (guest: AdminGuest) => {
+    const message = buildShareMessage(resolveShareTemplate(event), {
+      event,
+      guestName: guest.name,
+      dependentNames: guest.dependents.map((dep) => dep.name),
+      link: `${window.location.origin}/${guestPath(guest.slug)}`,
+    })
+    navigator.clipboard.writeText(message).then(
+      () => {
+        setCopiedMessageFor(guest.id)
+        setTimeout(() => setCopiedMessageFor((current) => (current === guest.id ? null : current)), 2000)
+      },
+      () => showError('Não foi possível copiar a mensagem.')
+    )
+  }
+
   const totalTitulares = guests.length
   const totalPessoas = guests.reduce((total, guest) => total + 1 + guest.dependents.length, 0)
+  const totalViewedGifts = guests.filter((guest) => guest.gifts_views > 0).length
 
   const query = normalize(search)
-  const visibleGuests = query
-    ? guests.filter(
-        (guest) =>
-          normalize(guest.name).includes(query) || guest.dependents.some((dep) => normalize(dep.name).includes(query))
-      )
-    : guests
+  const activeRoleFilter = ROLE_FILTERS.find((filter) => filter.value === roleFilter)
+  const visibleGuests = guests.filter(
+    (guest) =>
+      (!query ||
+        normalize(guest.name).includes(query) ||
+        guest.dependents.some((dep) => normalize(dep.name).includes(query))) &&
+      (!activeRoleFilter || activeRoleFilter.roles.includes(guest.role))
+  )
+  const roleFilterCounts = ROLE_FILTERS.map((filter) => ({
+    ...filter,
+    count: guests.filter((guest) => filter.roles.includes(guest.role)).length,
+  })).filter((filter) => filter.count > 0)
 
   // Aviso (não bloqueia) para evitar cadastrar a mesma pessoa duas vezes.
   const newNameKey = normalize(newName)
@@ -269,6 +337,12 @@ export default function AdminGuests() {
       <p className="mt-2 text-sm font-medium text-brand-primary">
         {totalTitulares} {totalTitulares === 1 ? 'convite' : 'convites'} · {totalPessoas}{' '}
         {totalPessoas === 1 ? 'pessoa no total' : 'pessoas no total'}
+        {totalViewedGifts > 0 && (
+          <span className="font-normal text-[#8b7a9c]">
+            {' '}
+            · {totalViewedGifts} {totalViewedGifts === 1 ? 'abriu' : 'abriram'} a lista de presentes
+          </span>
+        )}
       </p>
 
       <form
@@ -289,6 +363,20 @@ export default function AdminGuests() {
             autoComplete="off"
             className="min-w-0 flex-1 rounded-xl border border-brand-primary-soft bg-white px-4 py-2.5 outline-none focus:border-brand-primary"
           />
+          {isWedding && (
+            <select
+              value={newRole}
+              onChange={(e) => setNewRole(e.target.value as GuestRole)}
+              aria-label="Papel do convidado"
+              className="cursor-pointer rounded-xl border border-brand-primary-soft bg-white px-3 py-2.5 text-sm text-[#3f3450] outline-none focus:border-brand-primary"
+            >
+              {GUEST_ROLE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          )}
           <button
             type="submit"
             disabled={creating || !newName.trim()}
@@ -341,15 +429,40 @@ export default function AdminGuests() {
             />
           </div>
 
+          {isWedding && roleFilterCounts.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Filtrar por papel">
+              {[{ value: 'todos' as const, label: 'Todos', count: guests.length }, ...roleFilterCounts].map(
+                (filter) => (
+                  <button
+                    key={filter.value}
+                    type="button"
+                    onClick={() => setRoleFilter(filter.value)}
+                    aria-pressed={roleFilter === filter.value}
+                    className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition ${
+                      roleFilter === filter.value
+                        ? 'border-brand-primary bg-brand-primary text-white'
+                        : 'border-brand-primary-soft text-[#6b5d80] hover:bg-brand-primary-soft'
+                    }`}
+                  >
+                    {filter.label} · {filter.count}
+                  </button>
+                )
+              )}
+            </div>
+          )}
+
           {visibleGuests.length === 0 ? (
             <p className="mt-6 text-center text-sm text-[#8b7a9c]">
-              Ninguém encontrado para "{search.trim()}".{' '}
+              {query ? `Ninguém encontrado para "${search.trim()}".` : 'Ninguém encontrado com esse filtro.'}{' '}
               <button
                 type="button"
-                onClick={() => setSearch('')}
+                onClick={() => {
+                  setSearch('')
+                  setRoleFilter('todos')
+                }}
                 className="cursor-pointer font-medium text-brand-primary underline underline-offset-4"
               >
-                Limpar busca
+                {roleFilter === 'todos' ? 'Limpar busca' : 'Limpar filtros'}
               </button>
             </p>
           ) : (
@@ -411,6 +524,51 @@ export default function AdminGuests() {
                             </>
                           )}
                         </button>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => copyMessage(guest)}
+                            title="Copiar a mensagem de envio com o nome e o link deste convite"
+                            className="cursor-copy inline-flex items-center gap-1.5 rounded-full border border-brand-primary-soft px-3 py-1 text-xs font-medium text-brand-primary transition hover:bg-brand-primary-soft"
+                          >
+                            {copiedMessageFor === guest.id ? (
+                              <>
+                                <Check size={14} />
+                                Mensagem copiada!
+                              </>
+                            ) : (
+                              <>
+                                <MessageSquareText size={14} />
+                                Copiar mensagem
+                              </>
+                            )}
+                          </button>
+                          {isWedding && (
+                            <select
+                              value={guest.role}
+                              onChange={(e) => handleRoleChange(guest.id, e.target.value as GuestRole)}
+                              aria-label={`Papel de ${guest.name}`}
+                              title="Papel no casamento (aparece em destaque no convite)"
+                              className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium outline-none focus:border-brand-primary ${GUEST_ROLE_STYLES[guest.role]}`}
+                            >
+                              {GUEST_ROLE_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                          {guest.gifts_views > 0 && (
+                            <span
+                              title={giftsViewsTitle(guest)}
+                              className="inline-flex items-center gap-1 text-xs text-[#8b7a9c]"
+                            >
+                              <Gift size={13} aria-hidden />
+                              <span className="sr-only">{giftsViewsTitle(guest)}</span>
+                              <span aria-hidden>{guest.gifts_views}x</span>
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       <div className="flex shrink-0 items-center gap-1">

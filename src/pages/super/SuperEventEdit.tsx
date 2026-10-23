@@ -15,6 +15,7 @@ type EditForm = {
   maps_url: string
   maps_url_secondary: string
   dress_code: string
+  invite_message: string
   pix_key: string
   color_primary: string
   name_font: NameFont
@@ -47,6 +48,7 @@ function toFormState(event: SuperEvent): EditForm {
     maps_url: event.maps_url ?? '',
     maps_url_secondary: event.maps_url_secondary ?? '',
     dress_code: event.dress_code ?? '',
+    invite_message: event.invite_message ?? '',
     pix_key: event.pix_key ?? '',
     color_primary: event.color_primary,
     name_font: event.name_font,
@@ -95,6 +97,9 @@ export default function SuperEventEdit() {
           maps_url: form.maps_url.trim() || undefined,
           maps_url_secondary: form.maps_url_secondary.trim() || undefined,
           dress_code: form.dress_code.trim() || undefined,
+          // Sempre enviado (mesmo com o campo oculto): o backend grava NULL
+          // em tudo que não vier, e isso apagaria a mensagem do admin do evento.
+          invite_message: form.invite_message.trim() || undefined,
           pix_key: form.pix_key.trim() || undefined,
           color_primary: form.color_primary,
           name_font: form.name_font,
@@ -261,6 +266,19 @@ export default function SuperEventEdit() {
             className="mt-1 w-full rounded-xl border border-brand-primary-soft px-4 py-2 outline-none focus:border-brand-primary"
           />
         </label>
+
+        {isWedding && (
+          <label className="text-sm font-medium text-[#3f3450] sm:col-span-2">
+            Mensagem do convite
+            <textarea
+              rows={3}
+              maxLength={1000}
+              value={form.invite_message}
+              onChange={(e) => setForm((prev) => prev && { ...prev, invite_message: e.target.value })}
+              className="mt-1 w-full resize-y rounded-xl border border-brand-primary-soft px-4 py-2 outline-none focus:border-brand-primary"
+            />
+          </label>
+        )}
 
         <div className="border-t border-brand-primary-soft pt-4 sm:col-span-2">
           <p className="text-sm font-semibold text-[#3f3450]">Acesso e financeiro</p>

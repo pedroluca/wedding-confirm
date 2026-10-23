@@ -1,13 +1,17 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api, ApiError } from '../lib/api'
+import { useEvent } from '../lib/eventContext'
+import { DevCredit } from '../components/DevCredit'
 import { InviteDetails } from '../components/InviteDetails'
 import { PageShell } from '../components/PageShell'
+import { WeddingInvite } from '../components/invite/WeddingInvite'
 import type { GuestInviteResponse } from '../types'
 
 export default function GuestInvite() {
   const { eventSlug = '', guestSlug = '' } = useParams()
   const navigate = useNavigate()
+  const event = useEvent()
   const [data, setData] = useState<GuestInviteResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -58,8 +62,12 @@ export default function GuestInvite() {
     )
   }
 
+  if (event.event_type === 'wedding') {
+    return <WeddingInvite data={data} eventSlug={eventSlug} guestSlug={guestSlug} />
+  }
+
   return (
-    <PageShell>
+    <PageShell footer={<span className="text-[11px] tracking-wide"><DevCredit /></span>}>
       <div className="w-full max-w-md text-center">
         <InviteDetails />
         <button

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useLocation, useParams } from 'react-router-dom'
 import { api, ApiError } from '../lib/api'
 import { GiftClaimModal } from '../components/GiftClaimModal'
 import { PageShell } from '../components/PageShell'
@@ -9,6 +9,9 @@ const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: '
 
 export default function GuestGifts() {
   const { eventSlug = '', guestSlug = '' } = useParams()
+  // Aberta pelo botão "Lista de presentes" do convite (e não pela tela de
+  // confirmação): o "Voltar" leva de volta pro convite.
+  const cameFromInvite = (useLocation().state as { from?: string } | null)?.from === 'invite'
   const [gifts, setGifts] = useState<Gift[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -114,7 +117,7 @@ export default function GuestGifts() {
         )}
 
         <Link
-          to={`/${eventSlug}/${guestSlug}/confirmar`}
+          to={cameFromInvite ? `/${eventSlug}/${guestSlug}` : `/${eventSlug}/${guestSlug}/confirmar`}
           className="mt-8 block text-center text-sm text-brand-primary underline"
         >
           Voltar
