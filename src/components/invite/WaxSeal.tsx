@@ -1,4 +1,4 @@
-import { useId } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useEvent } from '../../lib/eventContext'
 import { NAME_FONT_FAMILY } from '../../lib/eventFormat'
 
@@ -40,17 +40,82 @@ const wax = (percent: number, mix: string) =>
 
 const initialOf = (name: string) => name.trim().charAt(0).toLocaleUpperCase('pt-BR')
 
+// Área onde as iniciais precisam caber: na largura, um pouco antes do anel
+// de bolinhas (r=38), que só os floreios finos chegam perto; na altura, o
+// miolo carimbado.
+const MAX_INK_WIDTH = 70
+const MAX_INK_HEIGHT = 40
+
+/** Tamanho e posição das iniciais pelo desenho real das letras (não pela caixa da fonte). */
+type InkFit = { fontSize: number; x: number; y: number }
+
+// Por fonte + texto: as metades do selo rachado reaproveitam a medida do
+// selo inteiro e aparecem exatamente no mesmo lugar.
+const inkFits = new Map<string, InkFit>()
+
+/**
+ * Mede o traço das iniciais num canvas (actualBoundingBox* = limites da
+ * tinta) e devolve o tamanho que cabe no carimbo e o ponto que centraliza o
+ * desenho em (50, 50). Caligrafias com floreios ficam tortas quando
+ * centralizadas pela largura de avanço, que é o que o SVG faz sozinho.
+ */
+function measureInkFit(text: string, fontFamily: string, baseSize: number, letterSpacing: number): InkFit | null {
+  const ctx = document.createElement('canvas').getContext('2d')
+  if (!ctx) return null
+  ctx.font = `${baseSize}px ${fontFamily}`
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'alphabetic'
+  if ('letterSpacing' in ctx) ctx.letterSpacing = `${letterSpacing}px`
+
+  const ink = ctx.measureText(text)
+  const width = ink.actualBoundingBoxLeft + ink.actualBoundingBoxRight
+  const height = ink.actualBoundingBoxAscent + ink.actualBoundingBoxDescent
+  if (!width || !height) return null
+
+  const scale = Math.min(1, MAX_INK_WIDTH / width, MAX_INK_HEIGHT / height)
+  return {
+    fontSize: baseSize * scale,
+    x: 50 + ((ink.actualBoundingBoxLeft - ink.actualBoundingBoxRight) / 2) * scale,
+    y: 50 + ((ink.actualBoundingBoxAscent - ink.actualBoundingBoxDescent) / 2) * scale,
+  }
+}
+
 /** Selo de cera com as iniciais do casal, na cor e na fonte do evento. */
 export function WaxSeal({ className }: { className?: string }) {
   const event = useEvent()
   // useId pode ter caracteres que quebram url(#...); fica só com o seguro.
   const id = `seal${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
+  const textRef = useRef<SVGTextElement>(null)
 
   const initials = event.host_name_secondary
     ? `${initialOf(event.host_name)}&${initialOf(event.host_name_secondary)}`
     : initialOf(event.host_name)
   const isScript = event.name_font !== 'sans'
   const fontSize = event.host_name_secondary ? (isScript ? 30 : 21) : isScript ? 40 : 30
+  const letterSpacing = isScript ? 0 : 1
+
+  const fitKey = `${event.name_font}|${initials}`
+  const [measured, setMeasured] = useState<{ key: string; fit: InkFit } | null>(null)
+  const fit = measured?.key === fitKey ? measured.fit : inkFits.get(fitKey)
+
+  // Mede depois que a fonte carrega (medir antes pegaria a fonte reserva).
+  useEffect(() => {
+    if (inkFits.has(fitKey) || !textRef.current) return
+    let active = true
+    const fontFamily = getComputedStyle(textRef.current).fontFamily
+    document.fonts
+      .load(`${fontSize}px ${fontFamily}`)
+      .then(() => {
+        const result = measureInkFit(initials, fontFamily, fontSize, letterSpacing)
+        if (!result || !active) return
+        inkFits.set(fitKey, result)
+        setMeasured({ key: fitKey, fit: result })
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [fitKey, initials, fontSize, letterSpacing])
 
   return (
     <svg viewBox="0 0 100 100" className={className} aria-hidden>
@@ -78,13 +143,15 @@ export function WaxSeal({ className }: { className?: string }) {
       {BEADS.map(([x, y]) => (
         <circle key={`${x}-${y}`} cx={x} cy={y} r="1.1" fill="#fff" fillOpacity="0.22" />
       ))}
+      {/* Até medir (ou se o canvas falhar), centraliza pela caixa da fonte. */}
       <text
-        x="50"
-        y="51"
+        ref={textRef}
+        x={fit ? fit.x : 50}
+        y={fit ? fit.y : 51}
         textAnchor="middle"
-        dominantBaseline="central"
-        fontSize={fontSize}
-        letterSpacing={isScript ? 0 : 1}
+        dominantBaseline={fit ? 'alphabetic' : 'central'}
+        fontSize={fit ? fit.fontSize : fontSize}
+        letterSpacing={letterSpacing}
         className={NAME_FONT_FAMILY[event.name_font]}
         style={{ fill: wax(70, 'white') }}
         filter={`url(#${id}-emboss)`}

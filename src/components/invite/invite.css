@@ -126,6 +126,7 @@
   border-radius: 3px;
   background: #fffdf9;
   box-shadow: 0 1px 3px rgb(63 52 80 / 0.12);
+  container-type: inline-size;
 }
 
 .envelope-letter::before {
@@ -485,7 +486,10 @@
   width: 50%;
 }
 
+/* A primeira aba passa 1px da metade: as duas se sobrepõem na emenda, senão
+   o cartão branco de baixo aparece como um fio pela borda suavizada. */
 .gate-horizontal .gate-door-start {
+  width: calc(50% + 1px);
   left: 0;
   border-radius: 6px 0 0 6px;
   transform-origin: 0 50%;
@@ -529,6 +533,7 @@
 }
 
 .gate-vertical .gate-door-start {
+  height: calc(50% + 1px);
   top: 0;
   border-radius: 6px 6px 0 0;
   transform-origin: 50% 0;

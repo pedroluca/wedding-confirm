@@ -1,4 +1,4 @@
-import { EnvelopeMonogram, EnvelopeScene, EnvelopeSeal, type EnvelopeProps } from './EnvelopeScene'
+import { EnvelopeCardNames, EnvelopeScene, EnvelopeSeal, type EnvelopeProps } from './EnvelopeScene'
 
 /** Estilo "Carta": envelope com aba triangular que gira e deixa a carta subir. */
 export function Envelope(props: EnvelopeProps) {
@@ -7,7 +7,7 @@ export function Envelope(props: EnvelopeProps) {
       <span className="envelope-back" />
 
       <span className="envelope-letter">
-        <EnvelopeMonogram />
+        <EnvelopeCardNames />
       </span>
 
       {/* Bolso da frente: abas laterais + aba de baixo. */}
