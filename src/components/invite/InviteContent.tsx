@@ -110,6 +110,8 @@ export function InviteContent({
   const showCountdown = event.show_countdown !== false
   const showCalendar = event.show_calendar !== false
   const showGifts = giftsEnabled(event)
+  // Premium (e Ilimitado) tiram o "Feito com Presenzo"; undefined = API anterior ao campo.
+  const showCredit = event.show_credit !== false
 
   const answered = data.members.every((member) => member.status !== 'pendente')
   const confirmedCount = data.members.filter((member) => member.status === 'confirmado').length
@@ -236,9 +238,11 @@ export function InviteContent({
             {event.host_name}
             {event.host_name_secondary && ` & ${event.host_name_secondary}`}
           </p>
-          <p className="mt-12 text-[11px] tracking-wide">
-            <DevCredit />
-          </p>
+          {showCredit && (
+            <p className="mt-12 text-[11px] tracking-wide">
+              <DevCredit />
+            </p>
+          )}
         </footer>
       </main>
     </div>

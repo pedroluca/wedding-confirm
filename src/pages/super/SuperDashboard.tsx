@@ -98,6 +98,8 @@ export default function SuperDashboard() {
   const today = new Date(now)
   const withAccess = events.map((event) => ({ event, access: accessStatus(event.access_expires_at, now) }))
   const active = withAccess.filter(({ access }) => access.state !== 'expired')
+  const premiumCount = events.filter((event) => event.plan === 'premium').length
+  const unlimitedCount = events.filter((event) => event.plan === 'unlimited').length
   const expiring = withAccess
     .filter(({ access }) => access.state === 'expiring')
     .sort((a, b) => (a.access.daysLeft ?? 0) - (b.access.daysLeft ?? 0))
@@ -145,7 +147,13 @@ export default function SuperDashboard() {
         <StatCard
           label="Eventos ativos"
           value={active.length}
-          hint={`${events.length} ${events.length === 1 ? 'evento' : 'eventos'} no total`}
+          hint={[
+            `${events.length} no total`,
+            `${premiumCount} Premium`,
+            unlimitedCount > 0 && `${unlimitedCount} ${unlimitedCount === 1 ? 'Ilimitado' : 'Ilimitados'}`,
+          ]
+            .filter(Boolean)
+            .join(' · ')}
           icon={CalendarClock}
         />
         <StatCard

@@ -1,5 +1,5 @@
 import { Navigate, Outlet } from 'react-router-dom'
-import { CalendarHeart, Gift, LayoutDashboard } from 'lucide-react'
+import { BadgeDollarSign, CalendarHeart, Gift, LayoutDashboard } from 'lucide-react'
 import { useAdminAuth } from '../../lib/adminAuthContext'
 import { PanelLayout, type PanelNavItem } from '../../components/panel/PanelLayout'
 
@@ -7,6 +7,7 @@ const NAV: PanelNavItem[] = [
   { to: '/super', label: 'Visão geral', icon: LayoutDashboard, end: true },
   { to: '/super/eventos', label: 'Eventos', icon: CalendarHeart },
   { to: '/super/presentes-sugeridos', label: 'Presentes sugeridos', icon: Gift },
+  { to: '/super/precos', label: 'Preços e planos', icon: BadgeDollarSign },
 ]
 
 export default function SuperAdminLayout() {

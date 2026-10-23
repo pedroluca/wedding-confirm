@@ -17,6 +17,10 @@ Cobre os três itens do backlog:
 | Quem usa o orçamento | **Os dois**: simulador público na home, que manda o pedido pelo WhatsApp, e calculadora no super ao criar ou editar o evento. |
 | Faixa de convidados | **Limite com tolerância**: a faixa contratada vale, mas há uma margem (padrão de 20%: 50 → até 60). Dentro da margem o admin vê um aviso. Quando a margem enche, trava e pede pra entrar em contato. |
 | Composição do preço | **Base por tipo de evento + adicionais**: faixa de convidados, lista de presentes, admins extras, Premium. Os valores são editáveis no super. |
+| Faixas | **50, 100, 150, 200, 300 e 500+.** A maior faixa cadastrada é aberta: cobre qualquer quantidade acima e o evento fica sem limite de convidados. Se surgir uma faixa maior, ela vira a aberta. |
+| Admins incluídos | **2 em qualquer plano**, como mínimo. Cada admin a mais é um adicional. |
+| Simulador público | Mostra **"a partir de R$ X"**. O valor final é fechado pelo WhatsApp. |
+| Desconto | O valor cobrado pode ficar abaixo do sugerido livremente. Além disso, **cupons cadastrados no super**, com desconto em % (ex: 20%) ou em valor (ex: R$ 50,00), aplicados no orçamento. |
 
 ---
 
@@ -97,13 +101,32 @@ CREATE TABLE app_settings (     -- parâmetros editáveis no super
                                         -- grace_days_standard, grace_days_premium
   value       VARCHAR(100) NOT NULL
 );
+
+CREATE TABLE coupons (          -- cupons de desconto
+  id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  code           VARCHAR(40) NOT NULL UNIQUE,      -- sempre em maiúsculas
+  discount_type  ENUM('percent','amount') NOT NULL,
+  discount_value DECIMAL(10,2) NOT NULL,           -- 20 (%) ou 50.00 (R$)
+  valid_until    DATE NULL,                        -- NULL = sem validade
+  active         TINYINT(1) NOT NULL DEFAULT 1,
+  notes          VARCHAR(255) NULL
+);
 ```
 - **Valores iniciais na migração:** tolerância de 20%, prazos de 15 e 30 dias, e os admins incluídos (veja as perguntas abaixo).
 - **Prazos de acesso:** hoje vêm de `config('access.grace_days')`. Passam a ser lidos de `app_settings`, com o config de reserva.
+- **Collation:** as tabelas novas declaram `COLLATE=utf8mb4_uca1400_ai_ci`, o mesmo das tabelas que vieram da produção. Antes de rodar em produção, confira o collation de `events` lá (o comando está no topo da migração).
+
+### Migração 017: cupom usado na venda
+```sql
+ALTER TABLE events
+  ADD COLUMN coupon_code VARCHAR(40) NULL AFTER price_charged,
+  ADD KEY idx_events_coupon_code (coupon_code);
+```
+- **Para que serve:** contar quantas vendas usaram cada cupom. O orçamento completo fica em `price_breakdown`.
 
 ### Cálculo do preço: uma fonte só
-- **Endpoint:** `POST /pricing/quote` recebe `{ event_type, guest_tier_id, gifts, premium, extra_admins }`.
-- **Resposta:** `{ total, items: [{ label, amount }] }`, ou seja, o valor e de onde ele vem.
+- **Endpoint:** `POST /pricing/quote` recebe `{ event_type, guest_tier_id, gifts, premium, extra_admins, coupon? }`.
+- **Resposta:** `{ total, items: [{ label, amount }] }`, ou seja, o valor e de onde ele vem. O cupom entra como um item negativo; um cupom inválido ou vencido não desconta e volta com o motivo, sem quebrar o orçamento.
 - **Quem usa:** tanto o simulador público quanto o super chamam esse endpoint. O front nunca soma preço sozinho, então os dois sempre mostram o mesmo valor.
 - **Endpoint de leitura:** `GET /pricing` (público) devolve só o necessário pro simulador montar as opções (tipos, faixas, adicionais).
 - **Limite de tempo:** o cálculo depende da tabela atual. O evento guarda o `price_charged` (o que foi cobrado) e o `price_breakdown`, então mudar a tabela depois não altera eventos já vendidos.
@@ -169,9 +192,10 @@ CREATE TABLE app_settings (     -- parâmetros editáveis no super
 
 ## Benefícios Premium
 
-- **Hoje:** prazo de acesso de 30 dias depois do evento, o dobro do Padrão.
+- **Hoje:**
+  - prazo de acesso de 30 dias depois do evento, o dobro do Padrão (editável em "Preços e planos");
+  - **sem o "Feito com Presenzo"** no rodapé do convite (fase 8). Vale também para o Ilimitado, que tem tudo do Premium.
 - **Candidatos para depois**, a decidir um por um:
-  - **sem o "Feito com Presenzo"** no rodapé do convite: marca própria, o candidato mais forte;
   - **aberturas Portas e Vertical** exclusivas, com Carta e Direto no Padrão;
   - **mais admins incluídos;**
   - **exportar a lista de presenças** (planilha ou PDF);
@@ -205,6 +229,8 @@ Cada fase vai separada, com testes no banco dev e o deploy na ordem migração �
 1. Migração 016 e a tela "Preços e planos" no super.
 2. `GET /pricing` e `POST /pricing/quote`.
 3. `app_settings` passa a comandar a tolerância, os admins incluídos e os prazos.
+4. Cupons de desconto: cadastro no super e aplicação no orçamento.
+5. Número de eventos Premium no dashboard do super.
 
 ### Fase 7: orçamento
 1. A calculadora em "Novo evento" e em "Plano e financeiro", com o preço sugerido ao lado do valor cobrado.
@@ -222,9 +248,9 @@ Para responder antes da fase em que cada uma entra:
 
 1. **Tolerância:** 20% para todas as faixas? Arredondando para cima (50 → 60, 100 → 120, 75 → 90)? *(Fase 5: adotado assim, no config `limits.guest_tolerance_percent`.)*
 2. **O que conta como convidado:** pessoas (titulares + relacionados), como sugerido, ou convites? *(Fase 5: adotado pessoas.)*
-3. **Admins incluídos no Padrão:** sugestão de 2 (um casal). No Premium, mais? *(Fase 6)*
-4. **Faixas e valores:** quais faixas (ex: 50, 100, 150, 200, 300) e o que fazer acima da última ("sob consulta" no simulador)? *(Fase 6)*
-5. **Simulador público:** mostrar o valor exato ou "a partir de R$ X"? *(Fase 7)*
-6. **Eventos que já existem:** ficam sem limite até a renovação, como sugerido, ou já entram numa faixa? *(Fase 4)*
-7. **Premium:** valor do adicional e quais benefícios entram primeiro. Sugestão: tirar o "Feito com Presenzo". *(Fase 8)*
-8. **Desconto:** o valor cobrado pode ficar abaixo do sugerido livremente? Ou registra o motivo (campo de notas, que já existe)? *(Fase 7)*
+3. **Admins incluídos no Padrão:** sugestão de 2 (um casal). No Premium, mais? *(Respondido: 2 como mínimo, em qualquer plano.)*
+4. **Faixas e valores:** quais faixas (ex: 50, 100, 150, 200, 300) e o que fazer acima da última ("sob consulta" no simulador)? *(Respondido: essas, mais 500+ como a maior, cobrindo qualquer quantidade acima. Os valores são preenchidos no super.)*
+5. **Simulador público:** mostrar o valor exato ou "a partir de R$ X"? *(Respondido: "a partir de R$ X".)*
+6. **Eventos que já existem:** ficam sem limite até a renovação, como sugerido, ou já entram numa faixa? *(Fase 4: adotado sem limite até a renovação.)*
+7. **Premium:** valor do adicional e quais benefícios entram primeiro. Sugestão: tirar o "Feito com Presenzo". *(Respondido: sim, começa por tirar o "Feito com Presenzo". O valor do adicional é preenchido no super.)*
+8. **Desconto:** o valor cobrado pode ficar abaixo do sugerido livremente? Ou registra o motivo (campo de notas, que já existe)? *(Respondido: livremente, e com cupons cadastrados no super, em % ou em R$.)*

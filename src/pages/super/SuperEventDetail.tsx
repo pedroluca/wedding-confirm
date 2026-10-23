@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   ArrowLeft,
+  Calculator,
   CalendarDays,
   Check,
   CircleCheck,
@@ -25,13 +26,15 @@ import { useAdminAuth, type Session } from '../../lib/adminAuthContext'
 import { formatEventDate, NAME_FONT_OPTIONS } from '../../lib/eventFormat'
 import { EVENT_TYPE_OPTIONS, EVENT_TYPES, eventTypeOptionLabel, formatHostNames } from '../../lib/eventTypes'
 import { INVITE_STYLE_OPTIONS, resolveInviteStyle } from '../../lib/inviteStyles'
-import { GUEST_TOLERANCE_PERCENT, guestBand, guestCap, PLAN_LABELS, suggestedAccessExpiry } from '../../lib/plans'
+import { guestBand, guestCap, PLAN_LABELS, planGraceDays, suggestedAccessExpiry } from '../../lib/plans'
+import { quoteRequestFromEvent, suggestedPriceHint, usePricingSettings } from '../../lib/pricing'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { InviteStylePicker } from '../../components/InviteStylePicker'
 import { AccessBadge } from '../../components/panel/AccessBadge'
 import { GuestBandBadge } from '../../components/panel/GuestBand'
 import { PlanBadge } from '../../components/panel/PlanBadge'
 import { PlanPicker } from '../../components/panel/PlanPicker'
+import { QuoteCalculator } from '../../components/panel/QuoteCalculator'
 import {
   boxClass,
   boxTitleClass,
@@ -44,12 +47,13 @@ import {
 } from '../../components/panel/form'
 import {
   PageHeader,
+  PanelTabs,
   panelCardClass,
   primaryButtonClass,
   secondaryButtonClass,
   StatCard,
 } from '../../components/panel/ui'
-import type { EventPlan, EventType, InviteStyle, NameFont, SuperEvent } from '../../types'
+import type { EventPlan, EventType, InviteStyle, NameFont, Quote, QuoteRequest, SuperEvent } from '../../types'
 import { EventAdminsPanel } from './EventAdminsPanel'
 
 type Tab = 'geral' | 'dados' | 'acesso' | 'admins'
@@ -91,6 +95,8 @@ type EditForm = {
   price_charged: string
   last_payment_at: string
   payment_notes: string
+  /** Orçamento aplicado nesta edição; só vai no PUT quando existe (a API recalcula e guarda). */
+  quote: QuoteRequest | null
 }
 
 function toDatetimeLocalValue(mysqlDateTime: string | null): string {
@@ -126,6 +132,7 @@ function toFormState(event: SuperEvent): EditForm {
     price_charged: event.price_charged !== null ? String(event.price_charged) : '',
     last_payment_at: event.last_payment_at ?? '',
     payment_notes: event.payment_notes ?? '',
+    quote: null,
   }
 }
 
@@ -163,6 +170,7 @@ function toPayload(form: EditForm) {
     price_charged: form.price_charged || undefined,
     last_payment_at: form.last_payment_at || undefined,
     payment_notes: form.payment_notes.trim() || undefined,
+    ...(form.quote ? { quote: { ...form.quote, event_type: form.event_type } } : {}),
   }
 }
 
@@ -184,6 +192,7 @@ export default function SuperEventDetail() {
   const { session, startImpersonation } = useAdminAuth()
   const token = session?.token ?? null
 
+  const pricingSettings = usePricingSettings()
   const [event, setEvent] = useState<SuperEvent | null>(null)
   const [form, setForm] = useState<EditForm | null>(null)
   const [loading, setLoading] = useState(true)
@@ -191,6 +200,7 @@ export default function SuperEventDetail() {
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
+  const [appliedQuote, setAppliedQuote] = useState<Quote | null>(null)
 
   const [entering, setEntering] = useState(false)
   const [enterError, setEnterError] = useState<string | null>(null)
@@ -245,8 +255,11 @@ export default function SuperEventDetail() {
   const styleLabel = INVITE_STYLE_OPTIONS.find((option) => option.value === resolveInviteStyle(event))?.label
   const unlimited = form.plan === 'unlimited'
   const giftsOn = unlimited || form.gifts_enabled
-  const suggestedAccess = suggestedAccessExpiry(form.event_date, form.plan)
+  const suggestedAccess = suggestedAccessExpiry(form.event_date, planGraceDays(form.plan, pricingSettings))
   const band = guestBand(event.stats.people, event)
+  // Preço sugerido: o orçamento aplicado agora ou o guardado na venda.
+  const suggestedTotal = appliedQuote?.total ?? event.price_breakdown?.total ?? null
+  const suggestedCoupon = appliedQuote ? appliedQuote.coupon?.code : event.coupon_code
   const formGuestLimit = Number(form.guest_limit)
 
   const previewEvent: SuperEvent = {
@@ -270,12 +283,31 @@ export default function SuperEventDetail() {
       const res = await api.put<{ event: SuperEvent }>(`/admin/super/events/${eventId}`, toPayload(form), token)
       setEvent((prev) => ({ ...res.event, stats: prev?.stats ?? res.event.stats }))
       setForm(toFormState(res.event))
+      setAppliedQuote(null)
       setSaved(true)
     } catch (err) {
       setSaveError(err instanceof ApiError ? err.message : 'Não foi possível salvar as alterações.')
     } finally {
       setSaving(false)
     }
+  }
+
+  // O orçamento preenche plano, contratado e valor cobrado; tudo continua editável.
+  const applyQuote = (quote: Quote, request: QuoteRequest) => {
+    setForm(
+      (prev) =>
+        prev && {
+          ...prev,
+          plan: quote.contract.plan,
+          gifts_enabled: quote.contract.gifts_enabled,
+          guest_limit: quote.contract.guest_limit !== null ? String(quote.contract.guest_limit) : '',
+          admin_limit: String(quote.contract.admin_limit),
+          price_charged: String(quote.total),
+          quote: request,
+        }
+    )
+    setAppliedQuote(quote)
+    setSaved(false)
   }
 
   const handleEnter = async () => {
@@ -351,29 +383,7 @@ export default function SuperEventDetail() {
         {enterError && <p className="mt-3 text-sm text-rose-600">{enterError}</p>}
       </div>
 
-      {/* A linha de baixo é uma sombra interna (a aba ativa pinta por cima):
-          com borda + margem negativa sobrava 1px de altura e o overflow-x
-          ligava uma barra de rolagem vertical. */}
-      <div className="mt-8 -mx-4 overflow-x-auto overflow-y-hidden px-4 sm:mx-0 sm:px-0">
-        <div className="flex w-max min-w-full gap-1 shadow-[inset_0_-1px_0_#ece6f0]" role="tablist">
-          {TABS.map((item) => (
-            <button
-              key={item.value}
-              type="button"
-              role="tab"
-              aria-selected={tab === item.value}
-              onClick={() => selectTab(item.value)}
-              className={`cursor-pointer border-b-2 px-4 py-3 text-sm font-medium whitespace-nowrap transition ${
-                tab === item.value
-                  ? 'border-brand-primary text-brand-primary'
-                  : 'border-transparent text-[#8b7a9c] hover:text-[#3f3450]'
-              }`}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <PanelTabs tabs={TABS} value={tab} onChange={selectTab} className="mt-8" />
 
       <div className="mt-6">
         {tab === 'geral' && (
@@ -455,6 +465,12 @@ export default function SuperEventDetail() {
                   <InfoRow label="Valor cobrado">
                     {event.price_charged !== null ? currency.format(event.price_charged) : '—'}
                   </InfoRow>
+                  {event.price_breakdown && (
+                    <InfoRow label="Orçamento">
+                      {currency.format(event.price_breakdown.total)} sugerido
+                      {event.coupon_code && ` · cupom ${event.coupon_code}`}
+                    </InfoRow>
+                  )}
                   <InfoRow label="Último pagamento">
                     {event.last_payment_at ? dayFormatter.format(new Date(`${event.last_payment_at}T12:00:00`)) : '—'}
                   </InfoRow>
@@ -694,6 +710,31 @@ export default function SuperEventDetail() {
               )}
             </Section>
 
+            {!unlimited && (
+              <Section
+                icon={<Calculator size={18} />}
+                title="Orçamento"
+                description={
+                  event.price_breakdown
+                    ? `Na venda: ${currency.format(event.price_breakdown.total)}. Recalcule para renovar ou mudar de faixa.`
+                    : 'Calcule pela tabela de preços e aplique no evento.'
+                }
+              >
+                <div className="sm:col-span-2">
+                  <QuoteCalculator
+                    eventType={form.event_type}
+                    initial={(pricing) => quoteRequestFromEvent(event, pricing)}
+                    onApply={applyQuote}
+                  />
+                </div>
+                {appliedQuote && (
+                  <p className="text-sm text-emerald-700 sm:col-span-2" role="status">
+                    Orçamento aplicado no plano, no contratado e no valor cobrado. Salve para gravar.
+                  </p>
+                )}
+              </Section>
+            )}
+
             <Section
               icon={<PackageCheck size={18} />}
               title="O que foi contratado"
@@ -736,7 +777,7 @@ export default function SuperEventDetail() {
                   Hoje: {event.stats.people} {event.stats.people === 1 ? 'pessoa' : 'pessoas'}, contando titulares e
                   relacionados.{' '}
                   {!unlimited && Number.isInteger(formGuestLimit) && formGuestLimit > 0
-                    ? `Com a margem de ${GUEST_TOLERANCE_PERCENT}%, o cadastro trava em ${guestCap(formGuestLimit)}.`
+                    ? `Com a margem de ${pricingSettings.guest_tolerance_percent}%, o cadastro trava em ${guestCap(formGuestLimit, pricingSettings.guest_tolerance_percent)}.`
                     : 'Em branco = sem limite.'}
                 </span>
               </label>
@@ -812,6 +853,11 @@ export default function SuperEventDetail() {
                   onChange={(e) => update('price_charged', e.target.value)}
                   className={inputClass}
                 />
+                {suggestedTotal !== null && (
+                  <span className={hintClass}>
+                    {suggestedPriceHint(form.price_charged, suggestedTotal, suggestedCoupon)}
+                  </span>
+                )}
               </label>
               <label className={labelClass}>
                 Último pagamento

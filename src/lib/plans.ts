@@ -1,4 +1,4 @@
-import type { AdminEvent, EventPlan, PublicEvent } from '../types'
+import type { AdminEvent, EventPlan, PricingSettings, PublicEvent } from '../types'
 
 /**
  * Lista de presentes e Pix no ar (a API já considera o plano). Ligada a
@@ -9,25 +9,30 @@ export function giftsEnabled(event: Pick<PublicEvent, 'gifts_enabled'>): boolean
 }
 
 /**
- * Dias de acesso ao painel depois da data do evento, por plano. Mesmos
- * valores do backend (config access.grace_days e grace_days_premium).
- * null = sem prazo.
+ * Dias de acesso ao painel depois da data do evento, por plano (definidos em
+ * "Preços e planos" no super-admin, os mesmos do backend). null = sem prazo.
  */
-export const PLAN_GRACE_DAYS: Record<EventPlan, number | null> = {
-  standard: 15,
-  premium: 30,
-  unlimited: null,
+export function planGraceDays(plan: EventPlan, settings: PricingSettings): number | null {
+  if (plan === 'unlimited') return null
+  return plan === 'premium' ? settings.grace_days_premium : settings.grace_days_standard
 }
 
-export const PLAN_OPTIONS: { value: EventPlan; label: string; description: string }[] = [
-  { value: 'standard', label: 'Padrão', description: '15 dias de acesso ao painel depois do evento.' },
-  { value: 'premium', label: 'Premium', description: '30 dias de acesso ao painel depois do evento, o dobro do Padrão.' },
-  {
-    value: 'unlimited',
-    label: 'Ilimitado',
-    description: 'Interno: todas as funções, sem limites e sem prazo. Para qualquer evento que você quiser liberar.',
-  },
+export const PLAN_OPTIONS: { value: EventPlan; label: string }[] = [
+  { value: 'standard', label: 'Padrão' },
+  { value: 'premium', label: 'Premium' },
+  { value: 'unlimited', label: 'Ilimitado' },
 ]
+
+/** Texto do cartão de cada plano no seletor. */
+export function planDescription(plan: EventPlan, settings: PricingSettings): string {
+  const days = planGraceDays(plan, settings)
+  if (days === null) {
+    return 'Interno: todas as funções, sem limites e sem prazo. Para qualquer evento que você quiser liberar.'
+  }
+  return plan === 'premium'
+    ? `${days} dias de acesso ao painel depois do evento e convite sem o "Feito com Presenzo".`
+    : `${days} dias de acesso ao painel depois do evento.`
+}
 
 export const PLAN_LABELS: Record<EventPlan, string> = {
   standard: 'Padrão',
@@ -36,15 +41,13 @@ export const PLAN_LABELS: Record<EventPlan, string> = {
 }
 
 /**
- * Margem acima da faixa de convidados antes de travar o cadastro. Mesmo
- * valor e cálculo do backend (config limits.guest_tolerance_percent e
- * guest_cap em src/Plans.php). O teto de um evento salvo já vem da API
- * (guest_cap); isto serve pra prévia enquanto o super-admin edita a faixa.
+ * Teto da faixa: limite + margem de tolerância, arredondada pra cima. Mesmo
+ * cálculo do backend (guest_cap em src/Plans.php). O teto de um evento salvo
+ * já vem da API (guest_cap); isto serve pra prévia enquanto o super-admin
+ * edita a faixa.
  */
-export const GUEST_TOLERANCE_PERCENT = 20
-
-export function guestCap(limit: number): number {
-  return limit + Math.ceil((limit * GUEST_TOLERANCE_PERCENT) / 100)
+export function guestCap(limit: number, tolerancePercent: number): number {
+  return limit + Math.ceil((limit * tolerancePercent) / 100)
 }
 
 /** Dentro da faixa, na margem de tolerância (só aviso) ou no teto (cadastro travado). */
@@ -71,12 +74,11 @@ export function guestBand(people: number, event: Pick<AdminEvent, 'guest_limit' 
 const pad = (value: number) => String(value).padStart(2, '0')
 
 /**
- * Data de acesso que o plano sugere: data do evento + prazo do plano, no
- * formato do <input type="datetime-local">. null quando o plano não tem
- * prazo ou o evento ainda não tem data.
+ * Data de acesso que o plano sugere: data do evento + prazo do plano
+ * (planGraceDays), no formato do <input type="datetime-local">. null quando
+ * o plano não tem prazo ou o evento ainda não tem data.
  */
-export function suggestedAccessExpiry(eventDate: string, plan: EventPlan): string | null {
-  const days = PLAN_GRACE_DAYS[plan]
+export function suggestedAccessExpiry(eventDate: string, days: number | null): string | null {
   const date = eventDate ? new Date(eventDate) : null
   if (days === null || !date || Number.isNaN(date.getTime())) return null
 

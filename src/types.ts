@@ -50,6 +50,8 @@ export type PublicEvent = {
   show_calendar: boolean
   /** Lista de presentes e Pix no ar, já considerando o plano. */
   gifts_enabled: boolean
+  /** "Feito com Presenzo" no rodapé do convite (some no Premium e no Ilimitado). */
+  show_credit: boolean
 }
 
 export type AdminEvent = PublicEvent & {
@@ -86,14 +88,110 @@ export type EventContract = {
   admin_limit: number | null
 }
 
+/**
+ * Orçamento aplicado na venda, como estava no dia. A faixa fica pela
+ * quantidade (max_guests): salvar a tabela de preços recria as faixas.
+ */
+export type PriceBreakdown = {
+  choice: {
+    event_type: EventType
+    max_guests: number
+    gifts: boolean
+    premium: boolean
+    extra_admins: number
+    coupon: string | null
+  }
+  items: { label: string; amount: number }[]
+  subtotal: number
+  discount: number
+  total: number
+  quoted_at: string
+}
+
 export type SuperEvent = AdminEvent & {
   id: number
   contract: EventContract
   price_charged: number | null
+  price_breakdown: PriceBreakdown | null
+  /** Cupom usado na venda. */
+  coupon_code: string | null
   last_payment_at: string | null
   payment_notes: string | null
   created_at: string
   stats: EventStats
+}
+
+/** Valor fixo da tabela de preços: base de um tipo de evento (base_wedding...) ou adicional. */
+export type PriceItem = {
+  key: string
+  label: string
+  amount: number
+}
+
+/** Faixa de convidados à venda. A maior é aberta ("500+"): o evento fica sem limite. */
+export type GuestTier = {
+  id: number
+  max_guests: number
+  amount: number
+  open_ended: boolean
+  label: string
+}
+
+/** Parâmetros dos planos editáveis em "Preços e planos" no super-admin. */
+export type PricingSettings = {
+  guest_tolerance_percent: number
+  included_admins: number
+  grace_days_standard: number
+  grace_days_premium: number
+}
+
+export type Pricing = {
+  prices: PriceItem[]
+  tiers: GuestTier[]
+  settings: PricingSettings
+}
+
+export type CouponDiscountType = 'percent' | 'amount'
+
+export type Coupon = {
+  id: number
+  code: string
+  discount_type: CouponDiscountType
+  /** 20 = 20% ou R$ 20,00, conforme discount_type. */
+  discount_value: number
+  valid_until: string | null
+  active: boolean
+  notes: string | null
+  created_at: string
+  /** Quantos eventos foram vendidos com este cupom (só na lista do super-admin). */
+  uses?: number
+}
+
+export type QuoteRequest = {
+  event_type: EventType
+  guest_tier_id: number
+  gifts: boolean
+  premium: boolean
+  extra_admins: number
+  coupon?: string
+}
+
+/** Orçamento calculado pela API (POST /pricing/quote). O cupom vem como item negativo. */
+export type Quote = {
+  items: { label: string; amount: number }[]
+  subtotal: number
+  discount: number
+  total: number
+  coupon: Coupon | null
+  /** Cupom informado que não vale (não encontrado, vencido); o orçamento sai sem desconto. */
+  coupon_error: string | null
+  /** O que o evento recebe ao fechar esta venda. */
+  contract: {
+    plan: Exclude<EventPlan, 'unlimited'>
+    gifts_enabled: boolean
+    guest_limit: number | null
+    admin_limit: number
+  }
 }
 
 export type GuestMember = {

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { WHATSAPP_URL } from '../lib/contact'
 import { Copyright } from '../components/DevCredit'
 import { PageShell } from '../components/PageShell'
+import { QuoteSimulator } from '../components/QuoteSimulator'
 
 const STEPS = [
   { title: 'Fale com a gente', description: 'Fale com a gente pelo WhatsApp e ativamos seu evento.' },
@@ -124,6 +125,8 @@ export default function Home() {
             </div>
           </div>
         </section>
+
+        <QuoteSimulator />
 
         {/* CTA final */}
         <section className="mt-16 rounded-3xl bg-linear-to-br from-presenzo-gold/15 to-presenzo-rose/15 p-8 text-center sm:mt-20 sm:p-12">

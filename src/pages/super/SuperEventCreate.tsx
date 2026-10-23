@@ -5,7 +5,8 @@ import { api, ApiError } from '../../lib/api'
 import { useAdminAuth } from '../../lib/adminAuthContext'
 import { NAME_FONT_OPTIONS } from '../../lib/eventFormat'
 import { EVENT_TYPE_OPTIONS, EVENT_TYPES, eventTypeOptionLabel } from '../../lib/eventTypes'
-import { PLAN_GRACE_DAYS } from '../../lib/plans'
+import { planGraceDays } from '../../lib/plans'
+import { defaultQuoteRequest, suggestedPriceHint, usePricingSettings } from '../../lib/pricing'
 import {
   boxClass,
   boxTitleClass,
@@ -17,8 +18,9 @@ import {
   Section,
 } from '../../components/panel/form'
 import { PlanPicker } from '../../components/panel/PlanPicker'
+import { QuoteCalculator } from '../../components/panel/QuoteCalculator'
 import { PageHeader } from '../../components/panel/ui'
-import type { EventPlan, EventType, NameFont, SuperEvent } from '../../types'
+import type { EventPlan, EventType, NameFont, Quote, QuoteRequest, SuperEvent } from '../../types'
 
 type CreateForm = {
   event_type: EventType
@@ -38,6 +40,11 @@ type CreateForm = {
   logo: File | null
   plan: EventPlan
   gifts_enabled: boolean
+  guest_limit: string
+  admin_limit: string
+  price_charged: string
+  /** Escolha do orçamento aplicado (a API recalcula e guarda no evento). */
+  quote: QuoteRequest | null
   admin_name: string
   admin_email: string
 }
@@ -60,6 +67,10 @@ const EMPTY_FORM: CreateForm = {
   logo: null,
   plan: 'standard',
   gifts_enabled: true,
+  guest_limit: '',
+  admin_limit: '',
+  price_charged: '',
+  quote: null,
   admin_name: '',
   admin_email: '',
 }
@@ -82,6 +93,13 @@ function toFormData(form: CreateForm): FormData {
   data.set('name_font', form.name_font)
   data.set('plan', form.plan)
   data.set('gifts_enabled', form.gifts_enabled ? '1' : '0')
+  // Em branco = sem limite / sem valor.
+  data.set('guest_limit', form.guest_limit)
+  data.set('admin_limit', form.admin_limit)
+  data.set('price_charged', form.price_charged)
+  if (form.quote) {
+    data.set('quote', JSON.stringify({ ...form.quote, event_type: form.event_type }))
+  }
   data.set('admin_name', form.admin_name.trim())
   data.set('admin_email', form.admin_email.trim())
   if (form.logo) {
@@ -97,16 +115,32 @@ export default function SuperEventCreate() {
   const [form, setForm] = useState<CreateForm>(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [appliedQuote, setAppliedQuote] = useState<Quote | null>(null)
 
   const typeProfile = EVENT_TYPES[form.event_type]
   const [hostLabel, hostSecondaryLabel] = typeProfile.hostLabels
   const [venueLabel, secondVenueLabel] = typeProfile.venueLabels
   const [venuePlaceholder, secondVenuePlaceholder] = typeProfile.venuePlaceholders
   const unlimited = form.plan === 'unlimited'
-  const graceDays = PLAN_GRACE_DAYS[form.plan]
+  const pricingSettings = usePricingSettings()
+  const graceDays = planGraceDays(form.plan, pricingSettings)
 
   const update = <K extends keyof CreateForm>(key: K, value: CreateForm[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }))
+
+  // O orçamento preenche plano, contratado e valor cobrado; tudo continua editável.
+  const applyQuote = (quote: Quote, request: QuoteRequest) => {
+    setForm((prev) => ({
+      ...prev,
+      plan: quote.contract.plan,
+      gifts_enabled: quote.contract.gifts_enabled,
+      guest_limit: quote.contract.guest_limit !== null ? String(quote.contract.guest_limit) : '',
+      admin_limit: String(quote.contract.admin_limit),
+      price_charged: String(quote.total),
+      quote: request,
+    }))
+    setAppliedQuote(quote)
+  }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -212,10 +246,27 @@ export default function SuperEventCreate() {
 
         <Section
           icon={<Crown size={18} />}
-          title="Plano"
-          description="Define o prazo de acesso e o que o evento libera. Faixa de convidados e admins ficam na página do evento."
+          title="Plano e orçamento"
+          description="Calcule o orçamento e aplique: ele preenche o plano, o que foi contratado e o valor cobrado."
         >
           <PlanPicker value={form.plan} onChange={(plan) => update('plan', plan)} />
+          {!unlimited && (
+            <div className={`${boxClass} sm:col-span-2`}>
+              <p className={boxTitleClass}>Orçamento</p>
+              <QuoteCalculator eventType={form.event_type} initial={defaultQuoteRequest} onApply={applyQuote} />
+              {appliedQuote && (
+                <p className="text-sm text-[#6b5d80]">
+                  Aplicado: {form.guest_limit ? `até ${form.guest_limit} convidados` : 'convidados sem limite'} ·{' '}
+                  {form.admin_limit} admins. Faixa e admins dá pra ajustar depois na página do evento.
+                  {form.quote && form.quote.event_type !== form.event_type && (
+                    <span className="block text-amber-700">
+                      O tipo do evento mudou depois de aplicar: aplique o orçamento de novo.
+                    </span>
+                  )}
+                </p>
+              )}
+            </div>
+          )}
           <div className="sm:col-span-2">
             <label className={checkboxLabelClass}>
               <input
@@ -233,6 +284,22 @@ export default function SuperEventCreate() {
                 : 'Desligada, some do convite, da confirmação e do painel do evento.'}
             </span>
           </div>
+          <label className={labelClass}>
+            Valor cobrado (R$)
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.price_charged}
+              onChange={(e) => update('price_charged', e.target.value)}
+              className={inputClass}
+            />
+            {appliedQuote && (
+              <span className={hintClass}>
+                {suggestedPriceHint(form.price_charged, appliedQuote.total, appliedQuote.coupon?.code)}
+              </span>
+            )}
+          </label>
         </Section>
 
         <Section icon={<CalendarDays size={18} />} title="Quando e onde">

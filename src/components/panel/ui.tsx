@@ -96,6 +96,45 @@ export function Meter({
   )
 }
 
+/** Abas de uma página do painel (quem usa guarda a aba na URL, em ?aba=). */
+export function PanelTabs<T extends string>({
+  tabs,
+  value,
+  onChange,
+  className = '',
+}: {
+  tabs: { value: T; label: string }[]
+  value: T
+  onChange: (value: T) => void
+  className?: string
+}) {
+  return (
+    // A linha de baixo é uma sombra interna (a aba ativa pinta por cima):
+    // com borda + margem negativa sobrava 1px de altura e o overflow-x
+    // ligava uma barra de rolagem vertical.
+    <div className={`-mx-4 overflow-x-auto overflow-y-hidden px-4 sm:mx-0 sm:px-0 ${className}`}>
+      <div className="flex w-max min-w-full gap-1 shadow-[inset_0_-1px_0_#ece6f0]" role="tablist">
+        {tabs.map((item) => (
+          <button
+            key={item.value}
+            type="button"
+            role="tab"
+            aria-selected={value === item.value}
+            onClick={() => onChange(item.value)}
+            className={`cursor-pointer border-b-2 px-4 py-3 text-sm font-medium whitespace-nowrap transition ${
+              value === item.value
+                ? 'border-brand-primary text-brand-primary'
+                : 'border-transparent text-[#8b7a9c] hover:text-[#3f3450]'
+            }`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 /** Estado vazio de listas e tabelas. */
 export function EmptyState({ children }: { children: ReactNode }) {
   return <p className="px-4 py-10 text-center text-sm text-[#8b7a9c]">{children}</p>

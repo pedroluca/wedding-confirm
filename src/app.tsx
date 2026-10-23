@@ -20,6 +20,7 @@ import SuperEventList from './pages/super/SuperEventList'
 import SuperEventCreate from './pages/super/SuperEventCreate'
 import SuperEventDetail from './pages/super/SuperEventDetail'
 import SuperGiftTemplates from './pages/super/SuperGiftTemplates'
+import SuperPricing from './pages/super/SuperPricing'
 
 // Endereço antigo da tela de admins do evento, hoje uma aba da página do evento.
 function EventAdminsRedirect() {
@@ -50,6 +51,7 @@ function App() {
         <Route path="eventos/:eventId" element={<SuperEventDetail />} />
         <Route path="eventos/:eventId/admins" element={<EventAdminsRedirect />} />
         <Route path="presentes-sugeridos" element={<SuperGiftTemplates />} />
+        <Route path="precos" element={<SuperPricing />} />
       </Route>
 
       <Route path="/:eventSlug" element={<EventLayout />}>
