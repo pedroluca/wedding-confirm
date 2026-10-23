@@ -105,6 +105,9 @@ export function InviteContent({
   const twoHosts = hasTwoHosts(event)
   // Papel salvo num tipo que não usa papéis (ex: evento que mudou de tipo) não aparece.
   const showRole = data.titular.role !== 'convidado' && guestRoleOptions(event.event_type) !== null
+  // Ligadas a menos que o admin desligue (undefined = API anterior aos campos).
+  const showCountdown = event.show_countdown !== false
+  const showCalendar = event.show_calendar !== false
 
   const answered = data.members.every((member) => member.status !== 'pendente')
   const confirmedCount = data.members.filter((member) => member.status === 'confirmado').length
@@ -151,7 +154,7 @@ export function InviteContent({
 
         <Ornament />
 
-        {date && (
+        {date && showCountdown && (
           <Reveal>
             <Countdown date={date} />
           </Reveal>
@@ -180,7 +183,7 @@ export function InviteContent({
           </Reveal>
         )}
 
-        {date && (
+        {date && showCalendar && (
           <Reveal>
             <AddToCalendar date={date} />
           </Reveal>

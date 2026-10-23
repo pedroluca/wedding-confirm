@@ -385,15 +385,20 @@
  * Mesma linha do tempo de 2,5s da carta, com o mesmo começo (nomes somem,
  * selo racha) e o mesmo fim (.envelope-scene.is-opening, zoom + fade):
  *   300ms   as duas abas giram para fora (900ms)
- *   1050ms  cartão de dentro vem para a frente (800ms)
+ *   1050ms  envelope inteiro (cartão + abas abertas) vem para a frente (800ms)
  */
 
+.gate-body,
 .gate-card,
 .gate-door,
 .gate-door-face,
 .gate-door-liner {
   position: absolute;
   display: block;
+}
+
+.gate-body {
+  inset: 0;
 }
 
 .gate-card {
@@ -577,8 +582,9 @@
   animation: gate-open-down 900ms cubic-bezier(0.45, 0, 0.2, 1) 300ms forwards;
 }
 
-.is-opening .gate-card {
-  animation: gate-card-forward 800ms cubic-bezier(0.3, 0.7, 0.2, 1) 1050ms forwards;
+/* Aproxima cartão e abas juntos (só o cartão crescendo descolava das abas). */
+.is-opening .gate-body {
+  animation: gate-forward 800ms cubic-bezier(0.3, 0.7, 0.2, 1) 1050ms forwards;
 }
 
 @keyframes seal-crack-top {
@@ -636,9 +642,9 @@
   }
 }
 
-@keyframes gate-card-forward {
+@keyframes gate-forward {
   to {
-    transform: scale(1.1);
+    transform: scale(1.08);
   }
 }
 

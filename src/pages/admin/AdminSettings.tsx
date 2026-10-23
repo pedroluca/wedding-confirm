@@ -38,6 +38,8 @@ type SettingsForm = {
   color_primary: string
   name_font: NameFont
   invite_style: InviteStyle
+  show_countdown: boolean
+  show_calendar: boolean
   logo: File | null
   cover_photo: File | null
   remove_cover_photo: boolean
@@ -89,6 +91,8 @@ function toFormState(event: AdminEvent): SettingsForm {
     color_primary: event.color_primary,
     name_font: event.name_font,
     invite_style: resolveInviteStyle(event),
+    show_countdown: event.show_countdown !== false,
+    show_calendar: event.show_calendar !== false,
     logo: null,
     cover_photo: null,
     remove_cover_photo: false,
@@ -117,6 +121,8 @@ function toFormData(form: SettingsForm, eventType: EventType): FormData {
   data.set('color_primary', form.color_primary)
   data.set('name_font', form.name_font)
   data.set('invite_style', form.invite_style)
+  data.set('show_countdown', form.show_countdown ? '1' : '0')
+  data.set('show_calendar', form.show_calendar ? '1' : '0')
   if (form.logo) {
     data.set('logo', form.logo)
   }
@@ -507,7 +513,7 @@ export default function AdminSettings() {
         <Section
           icon={<Sparkles size={18} />}
           title="Convite"
-          description="Mensagem, foto e música que aparecem no convite."
+          description="Mensagem, foto, música e o que mais aparece no convite."
         >
           <label className={`${labelClass} sm:col-span-2`}>
             Mensagem do convite
@@ -523,6 +529,31 @@ export default function AdminSettings() {
               {form.invite_message.length}/{INVITE_MESSAGE_MAX_LENGTH}
             </span>
           </label>
+
+          <div className={`${boxClass} sm:col-span-2`}>
+            <p className={boxTitleClass}>Seções</p>
+            <p className={hintClass}>Só aparecem quando o evento tem data e hora definidas.</p>
+            <div className="flex flex-col gap-x-8 sm:flex-row">
+              <label className={checkboxLabelClass}>
+                <input
+                  type="checkbox"
+                  checked={form.show_countdown}
+                  onChange={(e) => setForm((prev) => ({ ...prev, show_countdown: e.target.checked }))}
+                  className="accent-brand-primary"
+                />
+                Contagem regressiva
+              </label>
+              <label className={checkboxLabelClass}>
+                <input
+                  type="checkbox"
+                  checked={form.show_calendar}
+                  onChange={(e) => setForm((prev) => ({ ...prev, show_calendar: e.target.checked }))}
+                  className="accent-brand-primary"
+                />
+                Salve a data (adicionar à agenda)
+              </label>
+            </div>
+          </div>
 
           <div className={boxClass}>
             <p className={boxTitleClass}>Foto de capa</p>

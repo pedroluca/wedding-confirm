@@ -39,6 +39,9 @@ export type PublicEvent = {
   color_primary: string
   name_font: NameFont
   invite_style: InviteStyle
+  /** Seções opcionais da tela interna do convite. */
+  show_countdown: boolean
+  show_calendar: boolean
 }
 
 export type AdminEvent = PublicEvent & {
