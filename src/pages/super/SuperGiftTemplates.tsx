@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { api, ApiError } from '../../lib/api'
 import { useAdminAuth } from '../../lib/adminAuthContext'
+import { EVENT_TYPE_OPTIONS, EVENT_TYPES } from '../../lib/eventTypes'
 import type { EventType, GiftTemplate } from '../../types'
 
 const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -137,25 +138,19 @@ export default function SuperGiftTemplates() {
         </p>
       )}
 
-      <div className="mt-4 flex gap-2">
-        <button
-          type="button"
-          onClick={() => setTab('wedding')}
-          className={`cursor-pointer rounded-full px-4 py-2 text-sm font-medium transition ${
-            tab === 'wedding' ? 'bg-brand-primary text-white' : 'border border-brand-primary-soft text-[#3f3450]'
-          }`}
-        >
-          Casamento
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab('birthday')}
-          className={`cursor-pointer rounded-full px-4 py-2 text-sm font-medium transition ${
-            tab === 'birthday' ? 'bg-brand-primary text-white' : 'border border-brand-primary-soft text-[#3f3450]'
-          }`}
-        >
-          Aniversário
-        </button>
+      <div className="mt-4 flex flex-wrap gap-2">
+        {EVENT_TYPE_OPTIONS.map((type) => (
+          <button
+            key={type}
+            type="button"
+            onClick={() => setTab(type)}
+            className={`cursor-pointer rounded-full px-4 py-2 text-sm font-medium transition ${
+              tab === type ? 'bg-brand-primary text-white' : 'border border-brand-primary-soft text-[#3f3450]'
+            }`}
+          >
+            {EVENT_TYPES[type].label}
+          </button>
+        ))}
       </div>
 
       <form
@@ -208,7 +203,7 @@ export default function SuperGiftTemplates() {
           disabled={creating}
           className="cursor-pointer rounded-full bg-brand-primary px-6 py-2 font-semibold text-white transition hover:bg-brand-primary-hover disabled:opacity-60 sm:col-span-2"
         >
-          {creating ? 'Cadastrando...' : `Adicionar a ${tab === 'wedding' ? 'casamento' : 'aniversário'}`}
+          {creating ? 'Cadastrando...' : `Adicionar em ${EVENT_TYPES[tab].label}`}
         </button>
       </form>
 
@@ -317,7 +312,7 @@ export default function SuperGiftTemplates() {
           ))}
           {filtered.length === 0 && (
             <p className="text-[#8b7a9c]">
-              Nenhum modelo de {tab === 'wedding' ? 'casamento' : 'aniversário'} cadastrado ainda.
+              Nenhum modelo cadastrado em {EVENT_TYPES[tab].label} ainda.
             </p>
           )}
         </ul>

@@ -1,4 +1,5 @@
 import { formatEventDay, parseMysqlDate } from './eventFormat'
+import { formatHostNames } from './eventTypes'
 import type { AdminEvent, EventType } from '../types'
 
 // Mesmo limite do backend (optional_text(..., 1000) em handlers/admin_event.php).
@@ -11,9 +12,24 @@ export const DEFAULT_SHARE_MESSAGE: Record<EventType, string> = {
   birthday:
     'Olá, {primeiro_nome}! 🎉\n\nQuero muito {voce} na minha festa de aniversário.\n\n' +
     'Abra seu convite e confirme sua presença: {link}\n\nCom carinho,\n{aniversariante}',
+  graduation:
+    'Olá, {primeiro_nome}! 🎓\n\nQuero muito {voce} na minha formatura.\n\n' +
+    'Abra seu convite e confirme sua presença: {link}\n\nCom carinho,\n{formando}',
+  other:
+    'Olá, {primeiro_nome}! ✨\n\nQueremos muito {voce} nessa celebração com a gente.\n\n' +
+    'Abra seu convite e confirme sua presença: {link}\n\nCom carinho,\n{anfitrioes}',
 }
 
 export type ShareMessageVariable = { token: string; label: string }
+
+// Todas resolvem pros mesmos nomes (ver buildShareMessage), então um texto
+// salvo continua funcionando se o tipo do evento mudar.
+const HOSTS_VARIABLE: Record<EventType, ShareMessageVariable> = {
+  wedding: { token: '{noivos}', label: 'Noivos' },
+  birthday: { token: '{aniversariante}', label: 'Aniversariante' },
+  graduation: { token: '{formando}', label: 'Formando(a)' },
+  other: { token: '{anfitrioes}', label: 'Anfitriões' },
+}
 
 export function shareMessageVariables(eventType: EventType): ShareMessageVariable[] {
   return [
@@ -22,9 +38,7 @@ export function shareMessageVariables(eventType: EventType): ShareMessageVariabl
     { token: '{convidados}', label: 'Todos do convite' },
     { token: '{voce}', label: 'você / vocês' },
     { token: '{link}', label: 'Link do convite' },
-    eventType === 'wedding'
-      ? { token: '{noivos}', label: 'Noivos' }
-      : { token: '{aniversariante}', label: 'Aniversariante' },
+    HOSTS_VARIABLE[eventType],
     { token: '{data}', label: 'Data' },
   ]
 }
@@ -51,7 +65,7 @@ export function buildShareMessage(
   }: { event: AdminEvent; guestName: string; dependentNames: string[]; link: string }
 ): string {
   const name = guestName.trim()
-  const hosts = event.host_name_secondary ? `${event.host_name} & ${event.host_name_secondary}` : event.host_name
+  const hosts = formatHostNames(event)
   const date = event.event_date ? parseMysqlDate(event.event_date) : null
 
   const values: Record<string, string> = {
@@ -62,6 +76,8 @@ export function buildShareMessage(
     link,
     noivos: hosts,
     aniversariante: hosts,
+    formando: hosts,
+    anfitrioes: hosts,
     data: date ? formatEventDay(date) : '',
   }
 

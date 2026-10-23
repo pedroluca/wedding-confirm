@@ -1,6 +1,7 @@
 import { CalendarPlus, Download } from 'lucide-react'
 import { useEvent } from '../../lib/eventContext'
 import { downloadIcs, googleCalendarUrl, type CalendarEvent } from '../../lib/calendar'
+import { EVENT_TYPES, eventTitle } from '../../lib/eventTypes'
 
 // Duração padrão do evento na agenda (event_date só tem o início).
 const DURATION_HOURS = 5
@@ -11,17 +12,17 @@ const buttonClass =
 export function AddToCalendar({ date }: { date: Date }) {
   const event = useEvent()
 
-  const couple = event.host_name_secondary ? `${event.host_name} & ${event.host_name_secondary}` : event.host_name
   const location = [event.venue_name, event.address].filter(Boolean).join(' - ')
-  const reception = event.venue_name_secondary ? `\nRecepção: ${event.venue_name_secondary}` : ''
+  const secondVenueLabel = EVENT_TYPES[event.event_type].venueLabels[1]
+  const secondVenue = event.venue_name_secondary ? `\n${secondVenueLabel}: ${event.venue_name_secondary}` : ''
 
   const calendarEvent: CalendarEvent = {
     uid: `${event.slug}@presenzo.com.br`,
-    title: `Casamento de ${couple}`,
+    title: eventTitle(event),
     start: date,
     durationHours: DURATION_HOURS,
     location,
-    description: `Convite: ${window.location.href}${reception}`,
+    description: `Convite: ${window.location.href}${secondVenue}`,
   }
 
   return (
@@ -34,7 +35,7 @@ export function AddToCalendar({ date }: { date: Date }) {
         </a>
         <button
           type="button"
-          onClick={() => downloadIcs(calendarEvent, `casamento-${event.slug}.ics`)}
+          onClick={() => downloadIcs(calendarEvent, `${event.slug}.ics`)}
           className={buttonClass}
         >
           <Download size={16} />

@@ -19,7 +19,7 @@ import { useAdminEvent } from '../../lib/adminEventContext'
 import { StatusBadge } from '../../components/StatusBadge'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { giftsViewsTitle } from '../../lib/giftsViews'
-import { GUEST_ROLE_OPTIONS, GUEST_ROLE_STYLES } from '../../lib/guestRoles'
+import { GUEST_ROLE_STYLES, guestRoleOptions } from '../../lib/guestRoles'
 import { buildShareMessage, resolveShareTemplate } from '../../lib/shareMessage'
 import type { AdminDependent, AdminGuest, GuestRole, GuestStatus } from '../../types'
 
@@ -108,8 +108,8 @@ export default function AdminGuests() {
   const [loadError, setLoadError] = useState(false)
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('todos')
-  // Papel (padrinho, pais...) só faz sentido em casamento.
-  const isWedding = event.event_type === 'wedding'
+  // Papel (padrinho, pais...) só existe em alguns tipos de evento (casamento, formatura).
+  const roleOptions = guestRoleOptions(event.event_type)
 
   const [newName, setNewName] = useState('')
   const [newRole, setNewRole] = useState<GuestRole>('convidado')
@@ -363,14 +363,14 @@ export default function AdminGuests() {
             autoComplete="off"
             className="min-w-0 flex-1 rounded-xl border border-brand-primary-soft bg-white px-4 py-2.5 outline-none focus:border-brand-primary"
           />
-          {isWedding && (
+          {roleOptions && (
             <select
               value={newRole}
               onChange={(e) => setNewRole(e.target.value as GuestRole)}
               aria-label="Papel do convidado"
               className="cursor-pointer rounded-xl border border-brand-primary-soft bg-white px-3 py-2.5 text-sm text-[#3f3450] outline-none focus:border-brand-primary"
             >
-              {GUEST_ROLE_OPTIONS.map((option) => (
+              {roleOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
@@ -429,7 +429,7 @@ export default function AdminGuests() {
             />
           </div>
 
-          {isWedding && roleFilterCounts.length > 0 && (
+          {roleOptions && roleFilterCounts.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Filtrar por papel">
               {[{ value: 'todos' as const, label: 'Todos', count: guests.length }, ...roleFilterCounts].map(
                 (filter) => (
@@ -543,15 +543,15 @@ export default function AdminGuests() {
                               </>
                             )}
                           </button>
-                          {isWedding && (
+                          {roleOptions && (
                             <select
                               value={guest.role}
                               onChange={(e) => handleRoleChange(guest.id, e.target.value as GuestRole)}
                               aria-label={`Papel de ${guest.name}`}
-                              title="Papel no casamento (aparece em destaque no convite)"
+                              title="Papel no evento (aparece em destaque no convite)"
                               className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium outline-none focus:border-brand-primary ${GUEST_ROLE_STYLES[guest.role]}`}
                             >
-                              {GUEST_ROLE_OPTIONS.map((option) => (
+                              {roleOptions.map((option) => (
                                 <option key={option.value} value={option.value}>
                                   {option.label}
                                 </option>

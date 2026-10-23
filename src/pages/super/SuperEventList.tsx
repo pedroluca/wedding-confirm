@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { useAdminAuth } from '../../lib/adminAuthContext'
+import { EVENT_TYPES, formatHostNames } from '../../lib/eventTypes'
 import type { SuperEvent } from '../../types'
 
 const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -27,7 +28,7 @@ export default function SuperEventList() {
   }, [token, reloadKey])
 
   const handleDelete = async (event: SuperEvent) => {
-    const name = event.host_name_secondary ? `${event.host_name} e ${event.host_name_secondary}` : event.host_name
+    const name = formatHostNames(event, ' e ')
     const confirmed = window.confirm(
       `Remover o evento "${name}" (/${event.slug})?\n\n` +
         'Isso apaga PERMANENTEMENTE todos os convidados, presentes e admins deste evento. Não pode ser desfeito.'
@@ -65,12 +66,10 @@ export default function SuperEventList() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="font-medium text-[#3f3450]">
-                    {event.host_name_secondary
-                      ? `${event.host_name} e ${event.host_name_secondary}`
-                      : event.host_name}
+                    {formatHostNames(event, ' e ')}
                   </p>
                   <p className="mt-1 text-sm text-[#8b7a9c]">
-                    /{event.slug} · {event.event_type === 'wedding' ? 'Casamento' : 'Aniversário'}
+                    /{event.slug} · {EVENT_TYPES[event.event_type].label}
                     {event.price_charged !== null && ` · ${currency.format(event.price_charged)}`}
                   </p>
                 </div>

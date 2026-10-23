@@ -2,12 +2,14 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { useParams } from 'react-router-dom'
 import { api, ApiError } from '../../lib/api'
 import { useAdminAuth } from '../../lib/adminAuthContext'
+import { EVENT_TYPE_OPTIONS, EVENT_TYPES, eventTypeOptionLabel } from '../../lib/eventTypes'
 import type { EventType, NameFont, SuperEvent } from '../../types'
 
 type EditForm = {
   event_type: EventType
   host_name: string
   host_name_secondary: string
+  subtitle: string
   event_date: string
   venue_name: string
   venue_name_secondary: string
@@ -41,6 +43,7 @@ function toFormState(event: SuperEvent): EditForm {
     event_type: event.event_type,
     host_name: event.host_name,
     host_name_secondary: event.host_name_secondary ?? '',
+    subtitle: event.subtitle ?? '',
     event_date: toDatetimeLocalValue(event.event_date),
     venue_name: event.venue_name ?? '',
     venue_name_secondary: event.venue_name_secondary ?? '',
@@ -90,6 +93,8 @@ export default function SuperEventEdit() {
           event_type: form.event_type,
           host_name: form.host_name.trim(),
           host_name_secondary: form.host_name_secondary.trim() || undefined,
+          // Sempre enviado, mesmo vazio: o backend só mexe no subtítulo quando ele vem no corpo.
+          subtitle: form.subtitle.trim(),
           event_date: form.event_date || undefined,
           venue_name: form.venue_name.trim() || undefined,
           venue_name_secondary: form.venue_name_secondary.trim() || undefined,
@@ -122,7 +127,9 @@ export default function SuperEventEdit() {
   if (loading) return <p className="text-[#8b7a9c]">Carregando...</p>
   if (!form) return <p className="text-[#8b7a9c]">{error ?? 'Evento não encontrado.'}</p>
 
-  const isWedding = form.event_type === 'wedding'
+  const typeProfile = EVENT_TYPES[form.event_type]
+  const [hostLabel, hostSecondaryLabel] = typeProfile.hostLabels
+  const [venueLabel, secondVenueLabel] = typeProfile.venueLabels
 
   return (
     <div>
@@ -139,13 +146,16 @@ export default function SuperEventEdit() {
             onChange={(e) => setForm((prev) => prev && { ...prev, event_type: e.target.value as EventType })}
             className="mt-1 w-full rounded-xl border border-brand-primary-soft px-4 py-2 outline-none focus:border-brand-primary"
           >
-            <option value="wedding">Casamento</option>
-            <option value="birthday">Aniversário</option>
+            {EVENT_TYPE_OPTIONS.map((type) => (
+              <option key={type} value={type}>
+                {eventTypeOptionLabel(type)}
+              </option>
+            ))}
           </select>
         </label>
 
         <label className="text-sm font-medium text-[#3f3450] sm:col-span-2">
-          {isWedding ? 'Nome de um(a) dos noivos' : 'Nome do aniversariante'}
+          {hostLabel}
           <input
             required
             value={form.host_name}
@@ -154,16 +164,25 @@ export default function SuperEventEdit() {
           />
         </label>
 
-        {isWedding && (
-          <label className="text-sm font-medium text-[#3f3450] sm:col-span-2">
-            Nome do(a) outro(a) noivo(a)
-            <input
-              value={form.host_name_secondary}
-              onChange={(e) => setForm((prev) => prev && { ...prev, host_name_secondary: e.target.value })}
-              className="mt-1 w-full rounded-xl border border-brand-primary-soft px-4 py-2 outline-none focus:border-brand-primary"
-            />
-          </label>
-        )}
+        <label className="text-sm font-medium text-[#3f3450] sm:col-span-2">
+          {hostSecondaryLabel}
+          <input
+            value={form.host_name_secondary}
+            onChange={(e) => setForm((prev) => prev && { ...prev, host_name_secondary: e.target.value })}
+            className="mt-1 w-full rounded-xl border border-brand-primary-soft px-4 py-2 outline-none focus:border-brand-primary"
+          />
+        </label>
+
+        <label className="text-sm font-medium text-[#3f3450] sm:col-span-2">
+          Subtítulo (opcional)
+          <input
+            value={form.subtitle}
+            maxLength={150}
+            placeholder={typeProfile.subtitlePlaceholder}
+            onChange={(e) => setForm((prev) => prev && { ...prev, subtitle: e.target.value })}
+            className="mt-1 w-full rounded-xl border border-brand-primary-soft px-4 py-2 outline-none focus:border-brand-primary"
+          />
+        </label>
 
         <label className="text-sm font-medium text-[#3f3450]">
           Data e hora
@@ -201,7 +220,7 @@ export default function SuperEventEdit() {
         </label>
 
         <label className="text-sm font-medium text-[#3f3450] sm:col-span-2">
-          {isWedding ? 'Local da cerimônia' : 'Local'}
+          Local ({venueLabel})
           <input
             value={form.venue_name}
             onChange={(e) => setForm((prev) => prev && { ...prev, venue_name: e.target.value })}
@@ -210,7 +229,7 @@ export default function SuperEventEdit() {
         </label>
 
         <label className="text-sm font-medium text-[#3f3450] sm:col-span-2">
-          {isWedding ? 'Endereço da cerimônia' : 'Endereço'}
+          Endereço ({venueLabel})
           <input
             value={form.address}
             onChange={(e) => setForm((prev) => prev && { ...prev, address: e.target.value })}
@@ -219,7 +238,7 @@ export default function SuperEventEdit() {
         </label>
 
         <label className="text-sm font-medium text-[#3f3450] sm:col-span-2">
-          {isWedding ? 'Link do mapa da cerimônia' : 'Link do mapa'}
+          Link do mapa ({venueLabel})
           <input
             value={form.maps_url}
             onChange={(e) => setForm((prev) => prev && { ...prev, maps_url: e.target.value })}
@@ -227,27 +246,23 @@ export default function SuperEventEdit() {
           />
         </label>
 
-        {isWedding && (
-          <>
-            <label className="text-sm font-medium text-[#3f3450] sm:col-span-2">
-              Local da festa
-              <input
-                value={form.venue_name_secondary}
-                onChange={(e) => setForm((prev) => prev && { ...prev, venue_name_secondary: e.target.value })}
-                className="mt-1 w-full rounded-xl border border-brand-primary-soft px-4 py-2 outline-none focus:border-brand-primary"
-              />
-            </label>
+        <label className="text-sm font-medium text-[#3f3450] sm:col-span-2">
+          Local ({secondVenueLabel}, opcional)
+          <input
+            value={form.venue_name_secondary}
+            onChange={(e) => setForm((prev) => prev && { ...prev, venue_name_secondary: e.target.value })}
+            className="mt-1 w-full rounded-xl border border-brand-primary-soft px-4 py-2 outline-none focus:border-brand-primary"
+          />
+        </label>
 
-            <label className="text-sm font-medium text-[#3f3450] sm:col-span-2">
-              Link do mapa da festa
-              <input
-                value={form.maps_url_secondary}
-                onChange={(e) => setForm((prev) => prev && { ...prev, maps_url_secondary: e.target.value })}
-                className="mt-1 w-full rounded-xl border border-brand-primary-soft px-4 py-2 outline-none focus:border-brand-primary"
-              />
-            </label>
-          </>
-        )}
+        <label className="text-sm font-medium text-[#3f3450] sm:col-span-2">
+          Link do mapa ({secondVenueLabel})
+          <input
+            value={form.maps_url_secondary}
+            onChange={(e) => setForm((prev) => prev && { ...prev, maps_url_secondary: e.target.value })}
+            className="mt-1 w-full rounded-xl border border-brand-primary-soft px-4 py-2 outline-none focus:border-brand-primary"
+          />
+        </label>
 
         <label className="text-sm font-medium text-[#3f3450]">
           Traje
@@ -267,7 +282,7 @@ export default function SuperEventEdit() {
           />
         </label>
 
-        {isWedding && (
+        {form.event_type === 'wedding' && (
           <label className="text-sm font-medium text-[#3f3450] sm:col-span-2">
             Mensagem do convite
             <textarea

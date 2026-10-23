@@ -10,7 +10,7 @@ export type AdminInfo = {
   email: string
 }
 
-export type EventType = 'wedding' | 'birthday'
+export type EventType = 'wedding' | 'birthday' | 'graduation' | 'other'
 
 export type NameFont = 'sans' | 'fleur' | 'pinyon'
 
@@ -19,6 +19,8 @@ export type PublicEvent = {
   event_type: EventType
   host_name: string
   host_name_secondary: string | null
+  /** Linha abaixo dos nomes ("Medicina · UFMG", "30 anos"). */
+  subtitle: string | null
   event_date: string | null
   venue_name: string | null
   venue_name_secondary: string | null

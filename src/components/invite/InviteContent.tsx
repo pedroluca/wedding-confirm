@@ -4,6 +4,7 @@ import { Church, CircleCheck, Gift, Heart, MapPin, Shirt, Wine } from 'lucide-re
 import { DevCredit } from '../DevCredit'
 import { useEvent } from '../../lib/eventContext'
 import { NAME_FONT_CLASSES_COMPACT, parseMysqlDate } from '../../lib/eventFormat'
+import { EVENT_TYPES } from '../../lib/eventTypes'
 import type { GuestInviteResponse } from '../../types'
 import { AddToCalendar } from './AddToCalendar'
 import { Countdown } from './Countdown'
@@ -78,6 +79,7 @@ export function InviteContent({
   const navigate = useNavigate()
   const date = event.event_date ? parseMysqlDate(event.event_date) : null
   const isGroup = data.has_dependents
+  const [venueLabel, secondVenueLabel] = EVENT_TYPES[event.event_type].venueLabels
 
   const answered = data.members.every((member) => member.status !== 'pendente')
   const confirmedCount = data.members.filter((member) => member.status === 'confirmado').length
@@ -133,7 +135,7 @@ export function InviteContent({
             {(event.venue_name || event.address) && (
               <DetailCard
                 icon={<Church size={20} />}
-                label="Cerimônia"
+                label={venueLabel}
                 title={event.venue_name ?? event.address ?? ''}
                 subtitle={event.venue_name ? event.address : null}
                 mapsUrl={event.maps_url}
@@ -142,7 +144,7 @@ export function InviteContent({
             {event.venue_name_secondary && (
               <DetailCard
                 icon={<Wine size={20} />}
-                label="Recepção"
+                label={secondVenueLabel}
                 title={event.venue_name_secondary}
                 mapsUrl={event.maps_url_secondary}
               />

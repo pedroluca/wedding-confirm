@@ -4,6 +4,7 @@ import { api, ApiError } from '../../lib/api'
 import { useAdminAuth } from '../../lib/adminAuthContext'
 import { useAdminEvent, useSetAdminEvent } from '../../lib/adminEventContext'
 import { NAME_FONT_CLASSES_COMPACT } from '../../lib/eventFormat'
+import { EVENT_TYPES } from '../../lib/eventTypes'
 import { resizeImage } from '../../lib/resizeImage'
 import {
   buildShareMessage,
@@ -15,11 +16,13 @@ import type { AdminEvent, EventType, NameFont } from '../../types'
 
 // Mesmos limites do backend (read_event_branding_fields e src/Uploads.php).
 const INVITE_MESSAGE_MAX_LENGTH = 1000
+const SUBTITLE_MAX_LENGTH = 150
 const MUSIC_MAX_BYTES = 15 * 1024 * 1024
 
 type SettingsForm = {
   host_name: string
   host_name_secondary: string
+  subtitle: string
   event_date: string
   venue_name: string
   venue_name_secondary: string
@@ -68,6 +71,7 @@ function toFormState(event: AdminEvent): SettingsForm {
   return {
     host_name: event.host_name,
     host_name_secondary: event.host_name_secondary ?? '',
+    subtitle: event.subtitle ?? '',
     event_date: toDatetimeLocalValue(event.event_date),
     venue_name: event.venue_name ?? '',
     venue_name_secondary: event.venue_name_secondary ?? '',
@@ -93,6 +97,7 @@ function toFormData(form: SettingsForm, eventType: EventType): FormData {
   const data = new FormData()
   data.set('host_name', form.host_name.trim())
   data.set('host_name_secondary', form.host_name_secondary.trim())
+  data.set('subtitle', form.subtitle.trim())
   data.set('event_date', form.event_date)
   data.set('venue_name', form.venue_name.trim())
   data.set('venue_name_secondary', form.venue_name_secondary.trim())
@@ -121,11 +126,6 @@ function toFormData(form: SettingsForm, eventType: EventType): FormData {
     data.set('remove_music', '1')
   }
   return data
-}
-
-const HOST_LABEL: Record<EventType, [string, string]> = {
-  wedding: ['Nome de um(a) dos noivos', 'Nome do(a) outro(a) noivo(a)'],
-  birthday: ['Nome do aniversariante', ''],
 }
 
 const inputClass =
@@ -183,8 +183,12 @@ export default function AdminSettings() {
   const [preparingCover, setPreparingCover] = useState(false)
   const [previewWithGroup, setPreviewWithGroup] = useState(true)
 
+  // Foto, música e mensagem só aparecem no convite com envelope, que hoje é do casamento.
   const isWedding = event.event_type === 'wedding'
-  const [hostLabel, hostSecondaryLabel] = HOST_LABEL[event.event_type]
+  const typeProfile = EVENT_TYPES[event.event_type]
+  const [hostLabel, hostSecondaryLabel] = typeProfile.hostLabels
+  const [venueLabel, secondVenueLabel] = typeProfile.venueLabels
+  const [venuePlaceholder, secondVenuePlaceholder] = typeProfile.venuePlaceholders
   const shownCover = coverPreview ?? event.cover_photo_url
   const defaultShareMessage = DEFAULT_SHARE_MESSAGE[event.event_type]
 
@@ -288,10 +292,10 @@ export default function AdminSettings() {
       <form onSubmit={handleSubmit} className="mt-6 space-y-5">
         <Section
           icon={<Heart size={18} />}
-          title={isWedding ? 'Os noivos' : 'Aniversariante'}
+          title={typeProfile.hostsTitle}
           description="Como os nomes aparecem no envelope e no convite."
         >
-          <label className={`${labelClass} ${isWedding ? '' : 'sm:col-span-2'}`}>
+          <label className={labelClass}>
             {hostLabel}
             <input
               required
@@ -301,16 +305,26 @@ export default function AdminSettings() {
             />
           </label>
 
-          {isWedding && (
-            <label className={labelClass}>
-              {hostSecondaryLabel}
-              <input
-                value={form.host_name_secondary}
-                onChange={(e) => setForm((prev) => ({ ...prev, host_name_secondary: e.target.value }))}
-                className={inputClass}
-              />
-            </label>
-          )}
+          <label className={labelClass}>
+            {hostSecondaryLabel}
+            <input
+              value={form.host_name_secondary}
+              onChange={(e) => setForm((prev) => ({ ...prev, host_name_secondary: e.target.value }))}
+              className={inputClass}
+            />
+          </label>
+
+          <label className={`${labelClass} sm:col-span-2`}>
+            Subtítulo <span className="font-normal text-[#8b7a9c]">(opcional)</span>
+            <input
+              value={form.subtitle}
+              maxLength={SUBTITLE_MAX_LENGTH}
+              onChange={(e) => setForm((prev) => ({ ...prev, subtitle: e.target.value }))}
+              placeholder={typeProfile.subtitlePlaceholder}
+              className={inputClass}
+            />
+            <span className={hintClass}>Aparece logo abaixo dos nomes.</span>
+          </label>
 
           <label className={labelClass}>
             Fonte do nome
@@ -343,7 +357,7 @@ export default function AdminSettings() {
           <div className="rounded-xl bg-brand-primary-soft/25 px-4 py-5 text-center sm:col-span-2">
             <p className={`${NAME_FONT_CLASSES_COMPACT[form.name_font]} text-[#3f3450]`}>
               {form.host_name.trim() || 'Nome'}
-              {isWedding && form.host_name_secondary.trim() && (
+              {form.host_name_secondary.trim() && (
                 <>
                   {' '}
                   <span className="font-serif italic" style={{ color: form.color_primary }}>
@@ -353,6 +367,11 @@ export default function AdminSettings() {
                 </>
               )}
             </p>
+            {form.subtitle.trim() && (
+              <p className="mt-1 font-serif text-lg italic" style={{ color: form.color_primary }}>
+                {form.subtitle.trim()}
+              </p>
+            )}
             <p className="mt-1 text-xs text-[#8b7a9c]">Prévia</p>
           </div>
 
@@ -385,14 +404,14 @@ export default function AdminSettings() {
             />
           </label>
 
-          <div className={`${boxClass} ${isWedding ? '' : 'sm:col-span-2'}`}>
-            <p className={boxTitleClass}>{isWedding ? 'Cerimônia' : 'Local'}</p>
+          <div className={boxClass}>
+            <p className={boxTitleClass}>{venueLabel}</p>
             <label className={labelClass}>
               Local
               <input
                 value={form.venue_name}
                 onChange={(e) => setForm((prev) => ({ ...prev, venue_name: e.target.value }))}
-                placeholder={isWedding ? 'Ex: Paróquia São José' : 'Ex: Salão de festas Alegria'}
+                placeholder={venuePlaceholder}
                 className={inputClass}
               />
             </label>
@@ -416,30 +435,30 @@ export default function AdminSettings() {
             </label>
           </div>
 
-          {isWedding && (
-            <div className={boxClass}>
-              <p className={boxTitleClass}>Festa</p>
-              <label className={labelClass}>
-                Local
-                <input
-                  value={form.venue_name_secondary}
-                  onChange={(e) => setForm((prev) => ({ ...prev, venue_name_secondary: e.target.value }))}
-                  placeholder="Ex: Espaço Villa Jardim"
-                  className={inputClass}
-                />
-              </label>
-              <label className={labelClass}>
-                Link do mapa
-                <input
-                  value={form.maps_url_secondary}
-                  onChange={(e) => setForm((prev) => ({ ...prev, maps_url_secondary: e.target.value }))}
-                  placeholder="https://maps.app.goo.gl/..."
-                  className={inputClass}
-                />
-              </label>
-              <p className={hintClass}>Deixe em branco se a festa for no mesmo local da cerimônia.</p>
-            </div>
-          )}
+          <div className={boxClass}>
+            <p className={boxTitleClass}>
+              {secondVenueLabel} <span className="font-normal tracking-normal normal-case">(opcional)</span>
+            </p>
+            <label className={labelClass}>
+              Local
+              <input
+                value={form.venue_name_secondary}
+                onChange={(e) => setForm((prev) => ({ ...prev, venue_name_secondary: e.target.value }))}
+                placeholder={secondVenuePlaceholder}
+                className={inputClass}
+              />
+            </label>
+            <label className={labelClass}>
+              Link do mapa
+              <input
+                value={form.maps_url_secondary}
+                onChange={(e) => setForm((prev) => ({ ...prev, maps_url_secondary: e.target.value }))}
+                placeholder="https://maps.app.goo.gl/..."
+                className={inputClass}
+              />
+            </label>
+            <p className={hintClass}>Deixe em branco se for tudo no mesmo local.</p>
+          </div>
         </Section>
 
         <Section icon={<Shirt size={18} />} title="Detalhes">

@@ -2,12 +2,14 @@ import { useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api, ApiError } from '../../lib/api'
 import { useAdminAuth } from '../../lib/adminAuthContext'
+import { EVENT_TYPE_OPTIONS, EVENT_TYPES, eventTypeOptionLabel } from '../../lib/eventTypes'
 import type { EventType, NameFont, SuperEvent } from '../../types'
 
 type CreateForm = {
   event_type: EventType
   host_name: string
   host_name_secondary: string
+  subtitle: string
   event_date: string
   venue_name: string
   venue_name_secondary: string
@@ -33,6 +35,7 @@ const EMPTY_FORM: CreateForm = {
   event_type: 'wedding',
   host_name: '',
   host_name_secondary: '',
+  subtitle: '',
   event_date: '',
   venue_name: '',
   venue_name_secondary: '',
@@ -53,6 +56,7 @@ function toFormData(form: CreateForm): FormData {
   data.set('event_type', form.event_type)
   data.set('host_name', form.host_name.trim())
   data.set('host_name_secondary', form.host_name_secondary.trim())
+  data.set('subtitle', form.subtitle.trim())
   data.set('event_date', form.event_date)
   data.set('venue_name', form.venue_name.trim())
   data.set('venue_name_secondary', form.venue_name_secondary.trim())
@@ -80,7 +84,9 @@ export default function SuperEventCreate() {
   const [error, setError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const isWedding = form.event_type === 'wedding'
+  const typeProfile = EVENT_TYPES[form.event_type]
+  const [hostLabel, hostSecondaryLabel] = typeProfile.hostLabels
+  const [venueLabel, secondVenueLabel] = typeProfile.venueLabels
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -115,13 +121,16 @@ export default function SuperEventCreate() {
             onChange={(e) => setForm((prev) => ({ ...prev, event_type: e.target.value as EventType }))}
             className="mt-1 w-full rounded-xl border border-brand-primary-soft px-4 py-2 outline-none focus:border-brand-primary"
           >
-            <option value="wedding">Casamento</option>
-            <option value="birthday">Aniversário</option>
+            {EVENT_TYPE_OPTIONS.map((type) => (
+              <option key={type} value={type}>
+                {eventTypeOptionLabel(type)}
+              </option>
+            ))}
           </select>
         </label>
 
         <label className="text-sm font-medium text-[#3f3450] sm:col-span-2">
-          {isWedding ? 'Nome de um(a) dos noivos' : 'Nome do aniversariante'}
+          {hostLabel}
           <input
             required
             value={form.host_name}
@@ -130,16 +139,25 @@ export default function SuperEventCreate() {
           />
         </label>
 
-        {isWedding && (
-          <label className="text-sm font-medium text-[#3f3450] sm:col-span-2">
-            Nome do(a) outro(a) noivo(a)
-            <input
-              value={form.host_name_secondary}
-              onChange={(e) => setForm((prev) => ({ ...prev, host_name_secondary: e.target.value }))}
-              className="mt-1 w-full rounded-xl border border-brand-primary-soft px-4 py-2 outline-none focus:border-brand-primary"
-            />
-          </label>
-        )}
+        <label className="text-sm font-medium text-[#3f3450] sm:col-span-2">
+          {hostSecondaryLabel}
+          <input
+            value={form.host_name_secondary}
+            onChange={(e) => setForm((prev) => ({ ...prev, host_name_secondary: e.target.value }))}
+            className="mt-1 w-full rounded-xl border border-brand-primary-soft px-4 py-2 outline-none focus:border-brand-primary"
+          />
+        </label>
+
+        <label className="text-sm font-medium text-[#3f3450] sm:col-span-2">
+          Subtítulo (opcional)
+          <input
+            value={form.subtitle}
+            maxLength={150}
+            placeholder={typeProfile.subtitlePlaceholder}
+            onChange={(e) => setForm((prev) => ({ ...prev, subtitle: e.target.value }))}
+            className="mt-1 w-full rounded-xl border border-brand-primary-soft px-4 py-2 outline-none focus:border-brand-primary"
+          />
+        </label>
 
         <label className="text-sm font-medium text-[#3f3450]">
           Data e hora
@@ -177,7 +195,7 @@ export default function SuperEventCreate() {
         </label>
 
         <label className="text-sm font-medium text-[#3f3450] sm:col-span-2">
-          {isWedding ? 'Local da cerimônia' : 'Local'}
+          Local ({venueLabel})
           <input
             value={form.venue_name}
             onChange={(e) => setForm((prev) => ({ ...prev, venue_name: e.target.value }))}
@@ -186,7 +204,7 @@ export default function SuperEventCreate() {
         </label>
 
         <label className="text-sm font-medium text-[#3f3450] sm:col-span-2">
-          {isWedding ? 'Endereço da cerimônia' : 'Endereço'}
+          Endereço ({venueLabel})
           <input
             value={form.address}
             onChange={(e) => setForm((prev) => ({ ...prev, address: e.target.value }))}
@@ -195,7 +213,7 @@ export default function SuperEventCreate() {
         </label>
 
         <label className="text-sm font-medium text-[#3f3450] sm:col-span-2">
-          {isWedding ? 'Link do mapa da cerimônia' : 'Link do mapa'}
+          Link do mapa ({venueLabel})
           <input
             value={form.maps_url}
             onChange={(e) => setForm((prev) => ({ ...prev, maps_url: e.target.value }))}
@@ -203,27 +221,23 @@ export default function SuperEventCreate() {
           />
         </label>
 
-        {isWedding && (
-          <>
-            <label className="text-sm font-medium text-[#3f3450] sm:col-span-2">
-              Local da festa
-              <input
-                value={form.venue_name_secondary}
-                onChange={(e) => setForm((prev) => ({ ...prev, venue_name_secondary: e.target.value }))}
-                className="mt-1 w-full rounded-xl border border-brand-primary-soft px-4 py-2 outline-none focus:border-brand-primary"
-              />
-            </label>
+        <label className="text-sm font-medium text-[#3f3450] sm:col-span-2">
+          Local ({secondVenueLabel}, opcional)
+          <input
+            value={form.venue_name_secondary}
+            onChange={(e) => setForm((prev) => ({ ...prev, venue_name_secondary: e.target.value }))}
+            className="mt-1 w-full rounded-xl border border-brand-primary-soft px-4 py-2 outline-none focus:border-brand-primary"
+          />
+        </label>
 
-            <label className="text-sm font-medium text-[#3f3450] sm:col-span-2">
-              Link do mapa da festa
-              <input
-                value={form.maps_url_secondary}
-                onChange={(e) => setForm((prev) => ({ ...prev, maps_url_secondary: e.target.value }))}
-                className="mt-1 w-full rounded-xl border border-brand-primary-soft px-4 py-2 outline-none focus:border-brand-primary"
-              />
-            </label>
-          </>
-        )}
+        <label className="text-sm font-medium text-[#3f3450] sm:col-span-2">
+          Link do mapa ({secondVenueLabel})
+          <input
+            value={form.maps_url_secondary}
+            onChange={(e) => setForm((prev) => ({ ...prev, maps_url_secondary: e.target.value }))}
+            className="mt-1 w-full rounded-xl border border-brand-primary-soft px-4 py-2 outline-none focus:border-brand-primary"
+          />
+        </label>
 
         <label className="text-sm font-medium text-[#3f3450]">
           Traje

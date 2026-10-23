@@ -1,5 +1,6 @@
 import { useEvent } from '../lib/eventContext'
 import { formatEventDate, NAME_FONT_CLASSES, NAME_FONT_CLASSES_COMPACT } from '../lib/eventFormat'
+import { EVENT_TYPES } from '../lib/eventTypes'
 
 function MaybeMapLink({ href, children }: { href: string | null; children: string }) {
   if (!href) return children
@@ -19,7 +20,7 @@ export function InviteDetails({
   compact?: boolean
 }) {
   const event = useEvent()
-  const isWedding = event.event_type === 'wedding'
+  const [venueLabel, secondVenueLabel] = EVENT_TYPES[event.event_type].venueLabels
 
   return (
     <div className="mx-auto w-full max-w-md text-center">
@@ -45,6 +46,9 @@ export function InviteDetails({
           </>
         )}
       </h1>
+      {event.subtitle && !compact && (
+        <p className="mt-3 font-serif text-xl text-brand-primary italic">{event.subtitle}</p>
+      )}
 
       {!isHome && !compact && (
         <>
@@ -55,9 +59,7 @@ export function InviteDetails({
           <dl className="mt-8 space-y-4 rounded-3xl border border-brand-primary-soft bg-brand-primary-soft p-6 text-left">
             {event.venue_name && (
               <div>
-                <dt className="text-xs font-semibold tracking-wide text-brand-primary uppercase">
-                  {isWedding ? 'Cerimônia' : 'Local'}
-                </dt>
+                <dt className="text-xs font-semibold tracking-wide text-brand-primary uppercase">{venueLabel}</dt>
                 <dd className="text-[#3f3450]">{event.venue_name}</dd>
               </div>
             )}
@@ -69,9 +71,11 @@ export function InviteDetails({
                 </dd>
               </div>
             )}
-            {isWedding && event.venue_name_secondary && (
+            {event.venue_name_secondary && (
               <div>
-                <dt className="text-xs font-semibold tracking-wide text-brand-primary uppercase">Recepção</dt>
+                <dt className="text-xs font-semibold tracking-wide text-brand-primary uppercase">
+                  {secondVenueLabel}
+                </dt>
                 <dd className="text-[#3f3450]">
                   <MaybeMapLink href={event.maps_url_secondary}>{event.venue_name_secondary}</MaybeMapLink>
                 </dd>
