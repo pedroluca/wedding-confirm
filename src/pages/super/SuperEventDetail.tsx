@@ -883,7 +883,13 @@ export default function SuperEventDetail() {
           </form>
         )}
 
-        {tab === 'admins' && <EventAdminsPanel eventId={eventId} onChange={refreshStats} />}
+        {tab === 'admins' && (
+          <EventAdminsPanel
+            eventId={eventId}
+            onChange={refreshStats}
+            adminLimit={event.plan === 'unlimited' ? null : event.contract.admin_limit}
+          />
+        )}
       </div>
 
       {confirmDelete && (

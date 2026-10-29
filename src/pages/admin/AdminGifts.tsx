@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useSearchParams } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { useAdminAuth } from '../../lib/adminAuthContext'
 import { useAdminEvent } from '../../lib/adminEventContext'
 import { giftsEnabled } from '../../lib/plans'
-import { PageHeader } from '../../components/panel/ui'
+import { PageHeader, PanelTabs } from '../../components/panel/ui'
 import type { AdminGift, GiftTemplate } from '../../types'
+import { GiftClaimsPanel } from './GiftClaimsPanel'
+
+type Tab = 'escolhidos' | 'lista'
 
 const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 
@@ -246,12 +249,28 @@ function AdminGiftsPage() {
 
   const totalItens = gifts.length
   const totalUnidades = gifts.reduce((total, gift) => total + gift.quantity, 0)
+  const totalEscolhidos = gifts.reduce((total, gift) => total + gift.claims.length, 0)
+
+  // Sem aba na URL: quem já recebeu presentes cai direto nos escolhidos;
+  // uma lista ainda sem escolhas abre nos itens, pra montar.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const requestedTab = searchParams.get('aba')
+  const tab: Tab =
+    requestedTab === 'escolhidos' || requestedTab === 'lista'
+      ? requestedTab
+      : totalEscolhidos > 0
+        ? 'escolhidos'
+        : 'lista'
+  const tabs: { value: Tab; label: string }[] = [
+    { value: 'escolhidos', label: `Escolhidos (${totalEscolhidos})` },
+    { value: 'lista', label: 'Itens da lista' },
+  ]
 
   return (
     <div>
       <PageHeader
         title="Lista de presentes"
-        description="Itens que aparecem para os convidados na página de presentes, com a quantidade que ainda pode ser presenteada."
+        description="Os itens que aparecem para os convidados e os presentes que eles já escolheram, com quem escolheu e a mensagem."
       />
       {!loading && totalItens > 0 && (
         <p className="mt-3 text-sm font-medium text-brand-primary">
@@ -269,6 +288,21 @@ function AdminGiftsPage() {
           onCloned={reload}
         />
       ) : (
+        <>
+        {gifts.length > 0 && (
+          <PanelTabs
+            tabs={tabs}
+            value={tab}
+            onChange={(value) => setSearchParams({ aba: value }, { replace: true })}
+            className="mt-6"
+          />
+        )}
+
+        {tab === 'escolhidos' && gifts.length > 0 ? (
+          <div className="mt-6">
+            <GiftClaimsPanel gifts={gifts} />
+          </div>
+        ) : (
         <>
         <form onSubmit={handleCreate} className="mt-6 grid gap-3 rounded-2xl border border-brand-primary-soft p-5 sm:grid-cols-2">
           <input
@@ -439,6 +473,8 @@ function AdminGiftsPage() {
             ))}
             {gifts.length === 0 && <p className="text-[#8b7a9c]">Nenhum item cadastrado ainda.</p>}
           </ul>
+        </>
+        )}
         </>
       )}
     </div>

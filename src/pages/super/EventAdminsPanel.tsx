@@ -12,9 +12,18 @@ const dateFormatter = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 
 /**
  * Admins de um evento (aba "Admins" da página do evento no super-admin):
  * convidar (o admin recebe um email pra definir a senha), editar e remover.
- * onChange avisa a página pra atualizar a contagem de admins.
+ * onChange avisa a página pra atualizar a contagem de admins. adminLimit
+ * (os admins contratados, null = sem limite) só informa: não impede convidar.
  */
-export function EventAdminsPanel({ eventId, onChange }: { eventId: number; onChange?: () => void }) {
+export function EventAdminsPanel({
+  eventId,
+  onChange,
+  adminLimit = null,
+}: {
+  eventId: number
+  onChange?: () => void
+  adminLimit?: number | null
+}) {
   const { session } = useAdminAuth()
   const token = session?.token ?? null
   const [admins, setAdmins] = useState<AdminUser[]>([])
@@ -114,6 +123,12 @@ export function EventAdminsPanel({ eventId, onChange }: { eventId: number; onCha
             <p className="mt-0.5 text-sm text-[#8b7a9c]">
               A pessoa recebe um email com o link pra definir a própria senha.
             </p>
+            {adminLimit !== null && !loading && (
+              <p className={`mt-1 text-sm ${admins.length >= adminLimit ? 'text-amber-700' : 'text-[#6b5d80]'}`}>
+                {admins.length} de {adminLimit} {adminLimit === 1 ? 'admin contratado' : 'admins contratados'}.
+                {admins.length >= adminLimit && ' Os próximos contam como admin extra no orçamento.'}
+              </p>
+            )}
           </div>
         </div>
         <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end">
