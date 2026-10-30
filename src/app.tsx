@@ -6,6 +6,8 @@ import GuestInvite from './pages/GuestInvite'
 import GuestConfirm from './pages/GuestConfirm'
 import GuestGifts from './pages/GuestGifts'
 import NotFound from './pages/NotFound'
+import OrderCreate from './pages/OrderCreate'
+import OrderStatus from './pages/OrderStatus'
 import AdminLogin from './pages/admin/AdminLogin'
 import ForgotPassword from './pages/admin/ForgotPassword'
 import ResetPassword from './pages/admin/ResetPassword'
@@ -33,6 +35,9 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={<Home />} />
+      {/* contratar e pedido são reservados na API: nenhum evento ganha esses endereços (Slug.php) */}
+      <Route path="/contratar" element={<OrderCreate />} />
+      <Route path="/pedido/:publicId" element={<OrderStatus />} />
 
       <Route path="/admin/login" element={<AdminLogin />} />
       <Route path="/admin/forgot-password" element={<ForgotPassword />} />

@@ -329,14 +329,25 @@ Cada fase vai separada, com testes no banco dev e o deploy na ordem migração �
 6. Testes: um servidor falso do MP local para preferência/pagamento/assinatura, e depois um pagamento de teste de verdade com as credenciais de teste.
 
 ### Fase 11: telas públicas
+> **Feita em 2026-10-30** no branch `feat/pedidos-pagamento`, ainda sem deploy. Navegador contra o MP falso: 27/27.
+
 1. "Contratar" no simulador e a página `/contratar`.
 2. A página `/pedido/:publicId`.
+
+Decisões do Pedro (2026-10-30): **todos os "Quero o meu"** (topo da home, chamada final, banner e chamada dos convites de exemplo) vão pro `/contratar`, com o WhatsApp como link secundário; o simulador mostra o **total exato** ("Total", não "A partir de"); o `/contratar` é **uma página só**, com o resumo fixo ao lado. Com o pagamento desligado (`checkout.enabled = false`), tudo volta sozinho pro WhatsApp e pro "A partir de".
+
+Como ficou:
+- **Escolha na URL:** `/contratar?tipo=aniversario&convidados=100&lista=0&premium=1&admins=1&cupom=JOAO15`. O simulador manda a escolha por aí, e dá pra divulgar um link com o cupom já preenchido (`/contratar?cupom=JOAO15`). A faixa vai pela quantidade de convidados, não pelo id (o id muda quando a tabela é salva).
+- **`/contratar`:** "Seu convite" (os campos do simulador), "Seus dados" (nome, email, WhatsApp com máscara) e "Sobre o evento" (nomes com os rótulos do tipo, segundo nome obrigatório no casamento, "Qual é a celebração?" no tipo Celebração, data com "Ainda não sei", observação). Cupom inválido desativa o pagamento; cupom que zera o pedido mostra o aviso do WhatsApp.
+- **`/pedido/:publicId`:** aguardando (com o botão de voltar ao pagamento e a validade), recusado ("Tentar de novo"), Pix gerado, pago, evento criado ("Entrar no painel"), expirado ("Fazer um novo pedido"), cancelado e estornado. Na volta do MP usa o `payment_id` da URL, e enquanto aguarda consulta a API a cada 5 s (até 10 min, depois um "Atualizar").
+- **Endereços reservados:** a API não gera mais slug de evento `admin`, `super`, `contratar` nem `pedido` (ganham sufixo), porque essas rotas do site vêm antes de `/:slug`.
 
 ### Fase 12: pedidos no super
 1. Lista e detalhe de pedidos, cancelar, notas.
 2. "Criar evento" a partir do pedido (`order_id` em `POST /admin/super/events`).
 3. Card no dashboard.
-4. **Antes do deploy:** um pagamento real de valor baixo (ex: cupom de 99% num pedido seu) de ponta a ponta, e estorno.
+4. **Conferir no Mercado Pago:** busca o pagamento pelo número do pedido (`GET /v1/payments/search?external_reference=...`) e aplica como o webhook. Botão no detalhe do pedido no super e, na página `/pedido`, conferência automática enquanto aguarda (com limite de frequência). Fecha a brecha que o teste real de 2026-10-30 mostrou: aviso perdido + aba do MP fechada antes de voltar = pedido pago parado em "aguardando".
+5. **Antes do deploy:** um pagamento real de valor baixo (ex: cupom de 99% num pedido seu) de ponta a ponta, e estorno.
 
 ### Fase 13 (depois): criação automática
 - O webhook faz o que o botão "Criar evento" faz: cria o evento com o que veio no pedido e manda o "crie sua senha" (ou o "evento novo no painel") na hora. O super só revisa.

@@ -23,8 +23,10 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { checkoutEnabled } from '../lib/checkout'
 import { WHATSAPP_URL } from '../lib/contact'
 import { demoInvitePath, useDemos } from '../lib/demo'
+import { usePricing } from '../lib/pricing'
 import type { DemoEvent, EventType } from '../types'
 import { Copyright } from '../components/DevCredit'
 import { PageShell } from '../components/PageShell'
@@ -86,8 +88,18 @@ const GIFT_POINTS = [
   'No painel, você vê quem deu o quê e lê todos os recados.',
 ]
 
+const CONTACT_STEP = {
+  title: 'Fale com a gente',
+  description: 'Conta pelo WhatsApp como é o seu evento e a gente ativa tudo pra você.',
+}
+// Com a compra pelo site ligada, o primeiro passo é contratar por lá.
+const CONTRACT_STEP = {
+  title: 'Contrate pelo site',
+  description: 'Escolha o que o seu evento precisa e pague com Pix ou cartão. A gente prepara tudo e te manda o acesso.',
+}
+
+// Os passos depois do primeiro (que muda com a compra pelo site).
 const STEPS = [
-  { title: 'Fale com a gente', description: 'Conta pelo WhatsApp como é o seu evento e a gente ativa tudo pra você.' },
   {
     title: 'Personalize',
     description: 'Abertura, cores, foto, música, textos, convidados e presentes: tudo pelo seu painel.',
@@ -145,8 +157,29 @@ function scrollToExamples(event: MouseEvent<HTMLAnchorElement>) {
   target.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' })
 }
 
+/**
+ * "Quero o meu": com a compra pelo site ligada, vai pro /contratar; senão,
+ * abre o WhatsApp (como antes de existir o pagamento online).
+ */
+function WantOneLink({ canContract, className, children }: { canContract: boolean; className: string; children: ReactNode }) {
+  if (canContract) {
+    return (
+      <Link to="/contratar" className={className}>
+        {children}
+      </Link>
+    )
+  }
+  return (
+    <a href={WHATSAPP_URL} target="_blank" rel="noreferrer" className={className}>
+      {children}
+    </a>
+  )
+}
+
 export default function Home() {
   const demos = useDemos()
+  const canContract = checkoutEnabled(usePricing())
+  const steps = [canContract ? CONTRACT_STEP : CONTACT_STEP, ...STEPS]
   // Enquanto carrega, o botão do exemplo já aparece; some só se não houver nenhum.
   const showDemoButton = demos === null || demos.length > 0
   const demoByType = (type: EventType): DemoEvent | undefined => demos?.find((demo) => demo.event_type === type)
@@ -174,15 +207,13 @@ export default function Home() {
                 <ArrowRight size={18} />
               </a>
             )}
-            <a
-              href={WHATSAPP_URL}
-              target="_blank"
-              rel="noreferrer"
+            <WantOneLink
+              canContract={canContract}
               className={showDemoButton ? secondaryButtonClass : primaryButtonClass}
             >
-              <MessageCircle size={18} />
+              {canContract ? <Sparkles size={18} /> : <MessageCircle size={18} />}
               Quero o meu
-            </a>
+            </WantOneLink>
           </div>
           <Link
             to="/admin/login"
@@ -286,7 +317,7 @@ export default function Home() {
             Como funciona
           </p>
           <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-3">
-            {STEPS.map((step, i) => (
+            {steps.map((step, i) => (
               <div key={step.title} className="text-center sm:text-left">
                 <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-brand-primary font-display text-sm font-bold text-white">
                   {i + 1}
@@ -341,12 +372,27 @@ export default function Home() {
             Pronto pra organizar seu evento?
           </p>
           <p className="mx-auto mt-3 max-w-sm text-[#6b5d80]">
-            Fala com a gente pelo WhatsApp e a gente configura tudo pra você.
+            {canContract
+              ? 'Contrate pelo site em poucos minutos, ou fale com a gente se preferir conversar antes.'
+              : 'Fala com a gente pelo WhatsApp e a gente configura tudo pra você.'}
           </p>
-          <a href={WHATSAPP_URL} target="_blank" rel="noreferrer" className={`mt-6 ${primaryButtonClass}`}>
-            <MessageCircle size={18} />
-            Falar no WhatsApp
-          </a>
+          {canContract ? (
+            <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+              <Link to="/contratar" className={primaryButtonClass}>
+                Quero o meu
+                <ArrowRight size={18} />
+              </Link>
+              <a href={WHATSAPP_URL} target="_blank" rel="noreferrer" className={secondaryButtonClass}>
+                <MessageCircle size={18} />
+                Falar no WhatsApp
+              </a>
+            </div>
+          ) : (
+            <a href={WHATSAPP_URL} target="_blank" rel="noreferrer" className={`mt-6 ${primaryButtonClass}`}>
+              <MessageCircle size={18} />
+              Falar no WhatsApp
+            </a>
+          )}
         </section>
       </div>
     </PageShell>

@@ -136,6 +136,14 @@ export function describeQuoteRequest(request: QuoteRequest, pricing: Pricing): s
   return lines
 }
 
+/**
+ * A tabela de preços já foi preenchida no super-admin? Antes disso o
+ * simulador some e não dá pra contratar, pra nunca mostrar R$ 0,00.
+ */
+export function pricesConfigured(pricing: Pricing | null): boolean {
+  return pricing?.prices.some((item) => item.key.startsWith('base_') && item.amount > 0) ?? false
+}
+
 /** Escolha inicial do orçamento: casamento, menor faixa, com lista de presentes. */
 export function defaultQuoteRequest(pricing: Pricing): QuoteRequest | null {
   const tier = pricing.tiers[0]

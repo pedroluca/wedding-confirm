@@ -185,6 +185,31 @@ export type Pricing = {
   prices: PriceItem[]
   tiers: GuestTier[]
   settings: PricingSettings
+  /** Contratar pelo site (pagamento online). Ausente na resposta de salvar a tabela no super-admin. */
+  checkout?: { enabled: boolean; max_installments: number }
+}
+
+export type OrderStatus = 'pending' | 'paid' | 'event_created' | 'expired' | 'canceled' | 'refunded'
+
+/** Pedido feito pelo site, como a página pública /pedido/:publicId vê (sem email nem telefone). */
+export type PublicOrder = {
+  public_id: string
+  status: OrderStatus
+  customer_first_name: string
+  event_type: EventType
+  host_name: string
+  host_name_secondary: string | null
+  subtitle: string | null
+  event_date: string | null
+  items: { label: string; amount: number }[]
+  total: number
+  coupon_code: string | null
+  /** pix, credit_card, debit_card, account_money… (depois de pago) */
+  payment_method: string | null
+  installments: number | null
+  /** Página de pagamento do Mercado Pago, enquanto o pedido aguarda pagamento. */
+  checkout_url: string | null
+  expires_in_seconds: number | null
 }
 
 export type CouponDiscountType = 'percent' | 'amount'
