@@ -1,12 +1,13 @@
-import { useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, CalendarDays, Crown, Heart, Shirt, UserPlus } from 'lucide-react'
+import { useEffect, useState, type FormEvent } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { ArrowLeft, CalendarDays, Crown, Heart, Receipt, Shirt, UserPlus } from 'lucide-react'
 import { api, ApiError } from '../../lib/api'
 import { useAdminAuth } from '../../lib/adminAuthContext'
+import { paymentMethodLabel } from '../../lib/checkout'
 import { NAME_FONT_OPTIONS } from '../../lib/eventFormat'
 import { EVENT_TYPE_OPTIONS, EVENT_TYPES, eventTypeOptionLabel } from '../../lib/eventTypes'
 import { planGraceDays } from '../../lib/plans'
-import { defaultQuoteRequest, suggestedPriceHint, usePricingSettings } from '../../lib/pricing'
+import { currencyFormatter, defaultQuoteRequest, fetchPricing, suggestedPriceHint, usePricingSettings } from '../../lib/pricing'
 import {
   boxClass,
   boxTitleClass,
@@ -20,7 +21,7 @@ import {
 import { PlanPicker } from '../../components/panel/PlanPicker'
 import { QuoteCalculator } from '../../components/panel/QuoteCalculator'
 import { PageHeader } from '../../components/panel/ui'
-import type { EventPlan, EventType, NameFont, Quote, QuoteRequest, SuperEvent } from '../../types'
+import type { EventPlan, EventType, NameFont, Pricing, Quote, QuoteRequest, SuperEvent, SuperOrderDetail } from '../../types'
 
 type CreateForm = {
   event_type: EventType
@@ -75,8 +76,40 @@ const EMPTY_FORM: CreateForm = {
   admin_email: '',
 }
 
-function toFormData(form: CreateForm): FormData {
+/**
+ * O formulário preenchido a partir de um pedido pago pelo site: nomes, data,
+ * o que foi contratado (plano, lista, faixa, admins) e o cliente como
+ * primeiro admin. O valor cobrado, o orçamento e o cupom a API pega do
+ * próprio pedido (order_id), então aqui eles só aparecem.
+ */
+function formFromOrder(order: SuperOrderDetail, pricing: Pricing): Partial<CreateForm> {
+  const choice = order.choice
+  const tier = choice ? pricing.tiers.find((candidate) => candidate.max_guests === choice.max_guests) : undefined
+  return {
+    event_type: order.event_type,
+    host_name: order.host_name,
+    host_name_secondary: order.host_name_secondary ?? '',
+    subtitle: order.subtitle ?? '',
+    // O pedido só tem o dia: o horário fica pra ajustar (a tela avisa).
+    event_date: order.event_date ? `${order.event_date}T00:00` : '',
+    ...(choice && {
+      plan: choice.premium ? 'premium' : 'standard',
+      gifts_enabled: choice.gifts,
+      guest_limit: tier?.open_ended ? '' : String(choice.max_guests),
+      admin_limit: String(pricing.settings.included_admins + choice.extra_admins),
+    }),
+    price_charged: order.paid_amount !== null ? String(order.paid_amount) : '',
+    quote: null,
+    admin_name: order.customer_name,
+    admin_email: order.customer_email,
+  }
+}
+
+function toFormData(form: CreateForm, orderId: number | null): FormData {
   const data = new FormData()
+  if (orderId !== null) {
+    data.set('order_id', String(orderId))
+  }
   data.set('event_type', form.event_type)
   data.set('host_name', form.host_name.trim())
   data.set('host_name_secondary', form.host_name_secondary.trim())
@@ -112,10 +145,36 @@ export default function SuperEventCreate() {
   const { session } = useAdminAuth()
   const token = session?.token ?? null
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const orderParam = searchParams.get('pedido')
   const [form, setForm] = useState<CreateForm>(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [appliedQuote, setAppliedQuote] = useState<Quote | null>(null)
+  // Pedido pago pelo site que vai virar este evento (?pedido=ID, vindo de Pedidos).
+  const [order, setOrder] = useState<SuperOrderDetail | null>(null)
+  const [orderError, setOrderError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!orderParam) return
+    let active = true
+    Promise.all([api.get<{ order: SuperOrderDetail }>(`/admin/super/orders/${orderParam}`, token), fetchPricing()])
+      .then(([res, pricing]) => {
+        if (!active) return
+        if (res.order.status !== 'paid') {
+          setOrderError('Este pedido não está pago ou já virou evento.')
+          return
+        }
+        setOrder(res.order)
+        setForm((prev) => ({ ...prev, ...formFromOrder(res.order, pricing) }))
+      })
+      .catch((err) => {
+        if (active) setOrderError(err instanceof ApiError ? err.message : 'Não foi possível carregar o pedido.')
+      })
+    return () => {
+      active = false
+    }
+  }, [orderParam, token])
 
   const typeProfile = EVENT_TYPES[form.event_type]
   const [hostLabel, hostSecondaryLabel] = typeProfile.hostLabels
@@ -147,7 +206,7 @@ export default function SuperEventCreate() {
     setSaving(true)
     setError(null)
     try {
-      const res = await api.post<{ event: SuperEvent }>('/admin/super/events', toFormData(form), token)
+      const res = await api.post<{ event: SuperEvent }>('/admin/super/events', toFormData(form, order?.id ?? null), token)
       navigate(`/super/eventos/${res.event.id}`, { replace: true })
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Não foi possível criar o evento.')
@@ -169,7 +228,38 @@ export default function SuperEventCreate() {
         />
       </div>
 
+      {orderError && <p className="mt-6 text-sm text-rose-600">{orderError}</p>}
+
       <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+        {order && (
+          <Section
+            icon={<Receipt size={18} />}
+            title={`A partir do pedido #${order.id}`}
+            description="O formulário já veio preenchido com o pedido. O valor cobrado, o orçamento e o cupom ficam os do pedido; o resto dá pra ajustar."
+          >
+            <div className="sm:col-span-2">
+              <dl className="divide-y divide-[#f3eef5] text-sm">
+                {order.items.map((item) => (
+                  <div key={item.label} className="flex justify-between gap-4 py-1.5">
+                    <dt className="text-[#6b5d80]">{item.label}</dt>
+                    <dd className="text-[#3f3450] tabular-nums">{currencyFormatter.format(item.amount)}</dd>
+                  </div>
+                ))}
+              </dl>
+              <p className="mt-2 border-t border-[#ece6f0] pt-2 text-sm text-[#3f3450]">
+                Pago: <strong>{currencyFormatter.format(order.paid_amount ?? order.total)}</strong>
+                {' · '}
+                {paymentMethodLabel(order.payment_method, order.installments) ?? 'Mercado Pago'}
+              </p>
+              {order.customer_notes && (
+                <p className="mt-2 rounded-xl bg-[#faf8fb] p-3 text-sm whitespace-pre-line text-[#6b5d80]">
+                  Do cliente: {order.customer_notes}
+                </p>
+              )}
+            </div>
+          </Section>
+        )}
+
         <Section icon={<Heart size={18} />} title="Evento" description="Tipo, nomes e identidade visual.">
           <label className={`${labelClass} sm:col-span-2`}>
             Tipo de evento
@@ -247,10 +337,14 @@ export default function SuperEventCreate() {
         <Section
           icon={<Crown size={18} />}
           title="Plano e orçamento"
-          description="Calcule o orçamento e aplique: ele preenche o plano, o que foi contratado e o valor cobrado."
+          description={
+            order
+              ? 'O plano e o que foi contratado vieram do pedido. Dá pra ajustar, menos o valor cobrado.'
+              : 'Calcule o orçamento e aplique: ele preenche o plano, o que foi contratado e o valor cobrado.'
+          }
         >
           <PlanPicker value={form.plan} onChange={(plan) => update('plan', plan)} />
-          {!unlimited && (
+          {!unlimited && !order && (
             <div className={`${boxClass} sm:col-span-2`}>
               <p className={boxTitleClass}>Orçamento</p>
               <QuoteCalculator eventType={form.event_type} initial={defaultQuoteRequest} onApply={applyQuote} />
@@ -292,8 +386,10 @@ export default function SuperEventCreate() {
               step="0.01"
               value={form.price_charged}
               onChange={(e) => update('price_charged', e.target.value)}
-              className={inputClass}
+              disabled={order !== null}
+              className={`${inputClass} disabled:opacity-60`}
             />
+            {order && <span className={hintClass}>O valor pago no pedido.</span>}
             {appliedQuote && (
               <span className={hintClass}>
                 {suggestedPriceHint(form.price_charged, appliedQuote.total, appliedQuote.coupon?.code)}
@@ -316,6 +412,11 @@ export default function SuperEventCreate() {
                 ? 'No plano Ilimitado o acesso ao painel não tem prazo.'
                 : `O acesso ao painel vale até ${graceDays} dias depois dessa data.`}
             </span>
+            {order?.event_date && form.event_date.endsWith('T00:00') && (
+              <span className="mt-1 block text-xs font-normal text-amber-700">
+                O pedido só tem o dia: ajuste o horário (ou o cliente ajusta depois, no painel).
+              </span>
+            )}
           </label>
           <div className={boxClass}>
             <p className={boxTitleClass}>{venueLabel}</p>

@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Plus, TicketPercent } from 'lucide-react'
+import { Check, Link2, Plus, TicketPercent } from 'lucide-react'
 import { api, ApiError } from '../../lib/api'
 import { useAdminAuth } from '../../lib/adminAuthContext'
+import { couponContractUrl } from '../../lib/checkout'
 import { formatCouponDiscount } from '../../lib/pricing'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { checkboxLabelClass, fieldClass, inputClass, labelClass } from '../../components/panel/form'
@@ -138,7 +139,8 @@ function CouponFields({ form, onChange }: { form: CouponForm; onChange: (form: C
           className={inputClass}
         />
         <span className="mt-1 block text-xs font-normal text-[#8b7a9c]">
-          Ex: 5 para "os 5 primeiros". Conta os eventos vendidos com o cupom, não quem pediu pelo WhatsApp.
+          Ex: 5 para "os 5 primeiros". Conta as vendas com o cupom (eventos e pedidos pagos pelo site), não quem
+          pediu pelo WhatsApp.
         </span>
       </label>
       <label className={labelClass}>
@@ -182,6 +184,25 @@ export function CouponsPanel() {
   const [editError, setEditError] = useState<string | null>(null)
 
   const [pendingDelete, setPendingDelete] = useState<Coupon | null>(null)
+  // "Copiar link": o cupom copiado (some depois de uns segundos) ou, se o
+  // navegador não deixar copiar, o link aparece pra copiar à mão.
+  const [copied, setCopied] = useState<{ id: number; fallback: string | null } | null>(null)
+
+  const copyLink = (coupon: Coupon) => {
+    const url = couponContractUrl(coupon.code)
+    const show = (fallback: string | null) => {
+      setCopied({ id: coupon.id, fallback })
+      if (!fallback) window.setTimeout(() => setCopied((prev) => (prev?.id === coupon.id ? null : prev)), 2500)
+    }
+    if (!navigator.clipboard) {
+      show(url)
+      return
+    }
+    navigator.clipboard.writeText(url).then(
+      () => show(null),
+      () => show(url)
+    )
+  }
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
@@ -321,8 +342,26 @@ export function CouponsPanel() {
                           {coupon.uses !== undefined && ` · ${couponUsesLabel(coupon.uses, coupon.max_uses)}`}
                           {coupon.notes && ` · ${coupon.notes}`}
                         </p>
+                        {copied?.id === coupon.id && copied.fallback && (
+                          <input
+                            readOnly
+                            value={copied.fallback}
+                            onFocus={(e) => e.target.select()}
+                            aria-label={`Link do cupom ${coupon.code}`}
+                            className={`${fieldClass} mt-2 text-xs`}
+                          />
+                        )}
                       </div>
                       <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => copyLink(coupon)}
+                          title="Link do /contratar com este cupom já aplicado"
+                          className="cursor-pointer inline-flex items-center gap-1 text-sm text-brand-primary underline underline-offset-4"
+                        >
+                          {copied?.id === coupon.id && !copied.fallback ? <Check size={14} /> : <Link2 size={14} />}
+                          {copied?.id === coupon.id && !copied.fallback ? 'Link copiado!' : 'Copiar link'}
+                        </button>
                         <button
                           type="button"
                           onClick={() => startEdit(coupon)}

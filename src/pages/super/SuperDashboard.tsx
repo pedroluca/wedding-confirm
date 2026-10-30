@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { CalendarClock, CircleCheck, Plus, TimerReset, Wallet } from 'lucide-react'
+import { ArrowRight, CalendarClock, CircleCheck, Plus, ShoppingBag, TimerReset, Wallet } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAdminAuth } from '../../lib/adminAuthContext'
 import { accessStatus } from '../../lib/eventAccess'
@@ -10,7 +10,7 @@ import { guestBand, type GuestBand } from '../../lib/plans'
 import { AccessBadge } from '../../components/panel/AccessBadge'
 import { GuestBandBadge } from '../../components/panel/GuestBand'
 import { EmptyState, Meter, PageHeader, panelCardClass, primaryButtonClass, StatCard } from '../../components/panel/ui'
-import type { SuperEvent } from '../../types'
+import type { OrderStatus, SuperEvent } from '../../types'
 
 const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 const shortDate = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -56,6 +56,15 @@ export default function SuperDashboard() {
   const [events, setEvents] = useState<SuperEvent[] | null>(null)
   const [error, setError] = useState(false)
   const [now] = useState(() => Date.now())
+  // Pedidos pagos pelo site que ainda não viraram evento (pedem ação).
+  const [paidOrders, setPaidOrders] = useState(0)
+
+  useEffect(() => {
+    api
+      .get<{ counts: Record<OrderStatus, number> }>('/admin/super/orders', token)
+      .then((res) => setPaidOrders(res.counts.paid))
+      .catch(() => {})
+  }, [token])
 
   useEffect(() => {
     api
@@ -143,6 +152,22 @@ export default function SuperDashboard() {
   return (
     <div>
       {header}
+
+      {paidOrders > 0 && (
+        <Link
+          to="/super/pedidos?aba=pagos"
+          className="mt-6 flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-800 transition hover:bg-emerald-100"
+        >
+          <ShoppingBag size={18} className="shrink-0" />
+          <span className="flex-1">
+            <strong>
+              {paidOrders === 1 ? '1 pedido pago' : `${paidOrders} pedidos pagos`} pelo site
+            </strong>{' '}
+            {paidOrders === 1 ? 'esperando virar evento.' : 'esperando virar eventos.'}
+          </span>
+          <ArrowRight size={18} className="shrink-0" />
+        </Link>
+      )}
 
       <div className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard

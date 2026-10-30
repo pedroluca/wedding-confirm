@@ -1,5 +1,21 @@
 import { defaultQuoteRequest, pricesConfigured } from './pricing'
-import type { EventType, Pricing, QuoteRequest } from '../types'
+import type { EventType, OrderStatus, Pricing, QuoteRequest } from '../types'
+
+/** Status do pedido no super-admin, com o texto e a cor do selo. */
+export const ORDER_STATUS: Record<OrderStatus, { label: string; className: string }> = {
+  pending: { label: 'Aguardando pagamento', className: 'bg-amber-50 text-amber-700' },
+  paid: { label: 'Pago · criar evento', className: 'bg-emerald-50 text-emerald-700' },
+  event_created: { label: 'Evento criado', className: 'bg-brand-primary-soft text-brand-primary' },
+  expired: { label: 'Expirado', className: 'bg-slate-100 text-slate-500' },
+  canceled: { label: 'Cancelado', className: 'bg-slate-100 text-slate-500' },
+  refunded: { label: 'Estornado', className: 'bg-rose-50 text-rose-700' },
+}
+
+/** "5577999990000" (como a API guarda) → "(77) 99999-0000". */
+export function displayPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, '')
+  return formatPhone(digits.startsWith('55') && digits.length > 11 ? digits.slice(2) : digits)
+}
 
 /**
  * Dá pra contratar pelo site? O pagamento online precisa estar ligado na API
@@ -36,6 +52,15 @@ export function contractPath(request?: QuoteRequest | null, pricing?: Pricing | 
   if (request.coupon?.trim()) params.set('cupom', request.coupon.trim().toUpperCase())
 
   return `/contratar?${params}`
+}
+
+/**
+ * Link completo do /contratar com o cupom já aplicado, pra divulgação (ex: o
+ * cupom de um amigo). Usa o endereço onde o painel está aberto: em produção,
+ * presenzo.com.br.
+ */
+export function couponContractUrl(code: string): string {
+  return `${window.location.origin}/contratar?cupom=${encodeURIComponent(code.trim().toUpperCase())}`
 }
 
 /** /contratar já com o tipo de evento escolhido (ex: vindo de um convite de exemplo). */

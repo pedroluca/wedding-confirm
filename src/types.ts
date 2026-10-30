@@ -191,6 +191,62 @@ export type Pricing = {
 
 export type OrderStatus = 'pending' | 'paid' | 'event_created' | 'expired' | 'canceled' | 'refunded'
 
+/** Pedido na lista de "Pedidos" do super-admin. */
+export type SuperOrder = {
+  id: number
+  public_id: string
+  status: OrderStatus
+  customer_name: string
+  customer_email: string
+  /** Só dígitos, com o 55: "5577999990000". */
+  customer_phone: string
+  event_type: EventType
+  host_name: string
+  host_name_secondary: string | null
+  subtitle: string | null
+  /** AAAA-MM-DD, sem horário. */
+  event_date: string | null
+  total: number
+  coupon_code: string | null
+  /** A escolha do orçamento como foi vendida (price_breakdown.choice). */
+  choice: {
+    event_type: EventType
+    max_guests: number
+    gifts: boolean
+    premium: boolean
+    extra_admins: number
+    coupon: string | null
+  } | null
+  payment_method: string | null
+  installments: number | null
+  paid_amount: number | null
+  paid_at: string | null
+  expires_at: string
+  event_id: number | null
+  created_at: string
+}
+
+/** Um aviso do Mercado Pago (ou conferência) no diário do pedido. */
+export type PaymentNotification = {
+  id: number
+  mp_payment_id: string | null
+  mp_status: string | null
+  /** paid, refunded, amount_mismatch, paid_while_canceled, ignored, order_not_found… */
+  outcome: string
+  /** webhook, return (volta do MP), check (página do pedido), super (botão "Conferir") */
+  source: string | null
+  amount: number | null
+  created_at: string
+}
+
+export type SuperOrderDetail = SuperOrder & {
+  items: { label: string; amount: number }[]
+  customer_notes: string | null
+  super_notes: string | null
+  mp_payment_id: string | null
+  notifications: PaymentNotification[]
+}
+
 /** Pedido feito pelo site, como a página pública /pedido/:publicId vê (sem email nem telefone). */
 export type PublicOrder = {
   public_id: string
