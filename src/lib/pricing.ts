@@ -118,6 +118,7 @@ export function quoteRequestFromEvent(event: SuperEvent, pricing: Pricing): Quot
     premium: choice?.premium ?? event.plan === 'premium',
     extra_admins: choice?.extra_admins ?? Math.max(0, (event.contract.admin_limit ?? included) - included),
     coupon: choice?.coupon ?? '',
+    event_id: event.id,
   }
 }
 

@@ -13,6 +13,7 @@ type CouponForm = {
   discount_type: CouponDiscountType
   discount_value: string
   valid_until: string
+  max_uses: string
   active: boolean
   notes: string
 }
@@ -22,6 +23,7 @@ const EMPTY_FORM: CouponForm = {
   discount_type: 'percent',
   discount_value: '',
   valid_until: '',
+  max_uses: '',
   active: true,
   notes: '',
 }
@@ -32,6 +34,7 @@ function toForm(coupon: Coupon): CouponForm {
     discount_type: coupon.discount_type,
     discount_value: String(coupon.discount_value),
     valid_until: coupon.valid_until ?? '',
+    max_uses: coupon.max_uses !== null ? String(coupon.max_uses) : '',
     active: coupon.active,
     notes: coupon.notes ?? '',
   }
@@ -52,7 +55,17 @@ function today(): string {
 function couponStatus(coupon: Coupon): { label: string; className: string } {
   if (!coupon.active) return { label: 'Desativado', className: 'bg-slate-100 text-slate-600' }
   if (coupon.valid_until && coupon.valid_until < today()) return { label: 'Vencido', className: 'bg-rose-50 text-rose-700' }
+  if (coupon.max_uses !== null && (coupon.uses ?? 0) >= coupon.max_uses) {
+    return { label: 'Esgotado', className: 'bg-amber-50 text-amber-700' }
+  }
   return { label: 'Ativo', className: 'bg-emerald-50 text-emerald-700' }
+}
+
+/** "ainda não usado", "usado em 3 eventos", "usado em 3 de 5 eventos". */
+function couponUsesLabel(uses: number, maxUses: number | null): string {
+  if (maxUses !== null) return `usado em ${uses} de ${maxUses} ${maxUses === 1 ? 'evento' : 'eventos'}`
+  if (uses === 0) return 'ainda não usado'
+  return `usado em ${uses} ${uses === 1 ? 'evento' : 'eventos'}`
 }
 
 /** Campos do cupom, iguais na criação e na edição. */
@@ -111,6 +124,22 @@ function CouponFields({ form, onChange }: { form: CouponForm; onChange: (form: C
           onChange={(e) => update('valid_until', e.target.value)}
           className={inputClass}
         />
+      </label>
+      <label className={labelClass}>
+        Limite de usos <span className="font-normal text-[#8b7a9c]">(opcional)</span>
+        <input
+          type="number"
+          min="1"
+          step="1"
+          inputMode="numeric"
+          value={form.max_uses}
+          onChange={(e) => update('max_uses', e.target.value)}
+          placeholder="Sem limite"
+          className={inputClass}
+        />
+        <span className="mt-1 block text-xs font-normal text-[#8b7a9c]">
+          Ex: 5 para "os 5 primeiros". Conta os eventos vendidos com o cupom, não quem pediu pelo WhatsApp.
+        </span>
       </label>
       <label className={labelClass}>
         Observação <span className="font-normal text-[#8b7a9c]">(opcional, só você vê)</span>
@@ -289,8 +318,7 @@ export function CouponsPanel() {
                           {coupon.valid_until
                             ? `Válido até ${dateFormatter.format(new Date(`${coupon.valid_until}T12:00:00`))}`
                             : 'Sem validade'}
-                          {coupon.uses !== undefined &&
-                            ` · ${coupon.uses === 0 ? 'ainda não usado' : `usado em ${coupon.uses} ${coupon.uses === 1 ? 'evento' : 'eventos'}`}`}
+                          {coupon.uses !== undefined && ` · ${couponUsesLabel(coupon.uses, coupon.max_uses)}`}
                           {coupon.notes && ` · ${coupon.notes}`}
                         </p>
                       </div>
