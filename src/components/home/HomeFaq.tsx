@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react'
 import { ChevronDown } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { checkoutEnabled } from '../../lib/checkout'
 import { WHATSAPP_URL } from '../../lib/contact'
-import { usePricingSettings } from '../../lib/pricing'
+import { DEFAULT_PRICING_SETTINGS, usePricing } from '../../lib/pricing'
 
 function FaqItem({ question, children }: { question: string; children: ReactNode }) {
   return (
@@ -15,9 +17,13 @@ function FaqItem({ question, children }: { question: string; children: ReactNode
   )
 }
 
+const linkClass = 'font-semibold text-brand-primary underline'
+
 /** Perguntas frequentes da home. O prazo do painel vem de "Preços e planos" no super-admin. */
 export function HomeFaq() {
-  const settings = usePricingSettings()
+  const pricing = usePricing()
+  const settings = pricing?.settings ?? DEFAULT_PRICING_SETTINGS
+  const canContract = checkoutEnabled(pricing)
   const premiumGrace =
     settings.grace_days_premium !== settings.grace_days_standard
       ? ` (${settings.grace_days_premium} no plano Premium)`
@@ -50,10 +56,26 @@ export function HomeFaq() {
       </FaqItem>
       <FaqItem question="Quanto custa?">
         Depende do tipo de evento, da quantidade de convidados e do que você quiser incluir.{' '}
-        <a href={WHATSAPP_URL} target="_blank" rel="noreferrer" className="font-semibold text-brand-primary underline">
-          Chama a gente no WhatsApp
-        </a>{' '}
-        e a gente monta o orçamento com você.
+        {canContract ? (
+          <>
+            O simulador acima mostra o valor na hora, e dá pra{' '}
+            <Link to="/contratar" className={linkClass}>
+              contratar pelo site
+            </Link>{' '}
+            com Pix ou cartão em até {pricing?.checkout?.max_installments ?? 1}x. Se preferir,{' '}
+            <a href={WHATSAPP_URL} target="_blank" rel="noreferrer" className={linkClass}>
+              chama a gente no WhatsApp
+            </a>
+            .
+          </>
+        ) : (
+          <>
+            <a href={WHATSAPP_URL} target="_blank" rel="noreferrer" className={linkClass}>
+              Chama a gente no WhatsApp
+            </a>{' '}
+            e a gente monta o orçamento com você.
+          </>
+        )}
       </FaqItem>
     </div>
   )

@@ -214,13 +214,14 @@ Hoje um "uso" é um evento vendido com o cupom (`events.coupon_code`). Com pedid
     'webhook_secret' => '',    // "assinatura secreta" do webhook no painel do MP
     'max_installments' => 4,
     'order_ttl_hours' => 24,   // prazo do pedido pendente
+    'statement_descriptor' => 'PRESENZO',  // nome na fatura do cartão
 ],
 'app' => [
     'api_url' => 'https://api.presenzo.com.br',  // monta a notification_url
-    'notify_email' => '',      // quem recebe o aviso de pedido pago
+    'notify_email' => 'contato@presenzo.com.br', // aviso de pedido pago/estornado
 ],
 ```
-Sem `access_token`, o botão "Contratar" não aparece (como o simulador que some com preços zerados) e a home segue só com o WhatsApp.
+Os padrões ficam no `config.php`; no servidor, o `config.local.php` só precisa do `access_token`, do `webhook_secret` e do `api_url`. Sem `access_token`, `GET /pricing` responde `checkout.enabled = false`, o botão "Contratar" não aparece e a home segue só com o WhatsApp.
 
 ---
 
@@ -228,16 +229,21 @@ Sem `access_token`, o botão "Contratar" não aparece (como o simulador que some
 
 ### Público
 - **`POST /orders`**
-  - Body: `{ choice: { event_type, guest_tier_id, gifts, premium, extra_admins, coupon? }, customer: { name, email, phone }, event: { host_name, host_name_secondary?, event_date? }, notes?, website? }`.
-  - Valida tudo, recalcula com `compute_quote` (o front nunca manda preço), grava o pedido `pending` com `expires_at`, cria a preferência no MP e devolve `{ public_id, checkout_url, total }`.
+  - Body: `{ choice: { event_type, guest_tier_id, gifts, premium, extra_admins, coupon? }, customer: { name, email, phone }, event: { host_name, host_name_secondary?, subtitle?, event_date? }, notes?, website? }`.
+  - Valida tudo com mensagens do formulário ("Informe seu nome.", "Informe um WhatsApp com DDD."…), recalcula com `compute_quote` (o front nunca manda preço), grava o pedido `pending` com `expires_at`, cria a preferência no MP e devolve `{ order, checkout_url }`.
+  - **WhatsApp obrigatório**, gravado só com dígitos e o 55 (`5577999990000`).
+  - **Cupom inválido** responde 422 com o motivo (`code: "coupon"`), em vez de cobrar o preço cheio sem avisar. **Cupom que zera o pedido** (total abaixo de R$ 1) responde "Esse cupom precisa ser usado com a gente pelo WhatsApp.": o MP não cobra R$ 0.
+  - Se o MP não criar a preferência, o pedido é apagado e a resposta é 502 ("tente de novo em instantes").
   - `website` é um campo isca (honeypot): preenchido, a API finge sucesso e não cria nada. Pedido cria preferência no MP, então vale barrar robô.
 - **`GET /orders/{public_id}`**
-  - Devolve só o necessário para a tela de status: `status`, `total`, tipo e nomes do evento, forma de pagamento, `checkout_url` enquanto `pending`. Nunca devolve e-mail/telefone.
-  - Pedido `pending` com `expires_at` vencido é devolvido (e gravado) como `expired`.
+  - Devolve só o necessário para a tela de status: `status`, itens e `total`, tipo e nomes do evento, forma de pagamento, `checkout_url` e `expires_in_seconds` enquanto `pending`, e o primeiro nome do cliente. Nunca devolve e-mail/telefone.
+  - **`?payment_id=...`** (o MP põe na URL de volta): a API confere esse pagamento no MP na hora e aplica no pedido. A tela de status não depende do webhook ter chegado, e o fluxo funciona em dev sem túnel.
+  - Pedido `pending` com `expires_at` vencido é devolvido (e gravado) como `expired`. A validade fica no relógio do banco (`TIMESTAMPDIFF`), então não depende de fuso.
 - **`POST /webhooks/mercadopago`**
   - Valida a assinatura (`x-signature` + `x-request-id`, HMAC-SHA256 com `webhook_secret`). Inválida → 401 e nada muda.
   - Para `type = payment`: busca `GET /v1/payments/{data.id}`, acha o pedido por `external_reference` (= `public_id`), confere `transaction_amount` com `orders.total`, grava no diário e aplica o status.
-  - Sempre responde 200 rápido depois de gravar (o MP reenvia o que não recebe 2xx); e-mail fica depois do commit.
+  - Responde 200 depois de gravar. Se a consulta ao MP falhar, responde 5xx de propósito, para o MP tentar de novo.
+  - **Casos de olho humano**, que não mudam o pedido e mandam aviso para o `notify_email`: aprovado com valor diferente do pedido (`amount_mismatch`) e aprovado num pedido cancelado (`paid_while_canceled`). Aprovado depois de expirar vale (o Pix pode ter sido gerado antes).
 
 ### Super
 - **`GET /admin/super/orders`** (filtro por status) e **`GET /admin/super/orders/{id}`** (com o diário de notificações).
@@ -313,6 +319,8 @@ Cada fase vai separada, com testes no banco dev e o deploy na ordem migração �
 6. Testes: conta com dois eventos (troca, prazo de um vencido e do outro não, remoção de um), super, "entrar como admin", sessão aberta antes da migração continuando logada.
 
 ### Fase 10: pedidos e pagamento na API
+> **Feita em 2026-10-30** no branch `feat/pedidos-pagamento` dos dois repos, ainda sem deploy. Migração 022 rodada no `wedding_dev`. Testes contra um MP falso: 41/41. Teste real na conta de teste do MP (aplicação Integracao-Presenzo, Preferences), com túnel `cloudflared` para a API local: "Simular notificação" do painel passou na assinatura, a preferência foi aceita e lida de volta (4x, sem boleto, validade, fatura PRESENZO) e um pagamento com cartão de teste (APRO) virou `paid` pelo webhook. Ajuste que o teste real pegou: `auto_return` só vai com volta em `https` (o MP recusa a preferência com volta em `http://localhost`).
+
 1. Migração 022 (`orders`, `payment_notifications`) e `sql/deploy_022.sql`.
 2. Cliente do Mercado Pago em `src/MercadoPago.php` (criar preferência, buscar pagamento, validar assinatura).
 3. `POST /orders`, `GET /orders/{public_id}` e `POST /webhooks/mercadopago`.
@@ -321,14 +329,25 @@ Cada fase vai separada, com testes no banco dev e o deploy na ordem migração �
 6. Testes: um servidor falso do MP local para preferência/pagamento/assinatura, e depois um pagamento de teste de verdade com as credenciais de teste.
 
 ### Fase 11: telas públicas
+> **Feita em 2026-10-30** no branch `feat/pedidos-pagamento`, ainda sem deploy. Navegador contra o MP falso: 27/27.
+
 1. "Contratar" no simulador e a página `/contratar`.
 2. A página `/pedido/:publicId`.
+
+Decisões do Pedro (2026-10-30): **todos os "Quero o meu"** (topo da home, chamada final, banner e chamada dos convites de exemplo) vão pro `/contratar`, com o WhatsApp como link secundário; o simulador mostra o **total exato** ("Total", não "A partir de"); o `/contratar` é **uma página só**, com o resumo fixo ao lado. Com o pagamento desligado (`checkout.enabled = false`), tudo volta sozinho pro WhatsApp e pro "A partir de".
+
+Como ficou:
+- **Escolha na URL:** `/contratar?tipo=aniversario&convidados=100&lista=0&premium=1&admins=1&cupom=JOAO15`. O simulador manda a escolha por aí, e dá pra divulgar um link com o cupom já preenchido (`/contratar?cupom=JOAO15`). A faixa vai pela quantidade de convidados, não pelo id (o id muda quando a tabela é salva).
+- **`/contratar`:** "Seu convite" (os campos do simulador), "Seus dados" (nome, email, WhatsApp com máscara) e "Sobre o evento" (nomes com os rótulos do tipo, segundo nome obrigatório no casamento, "Qual é a celebração?" no tipo Celebração, data com "Ainda não sei", observação). Cupom inválido desativa o pagamento; cupom que zera o pedido mostra o aviso do WhatsApp.
+- **`/pedido/:publicId`:** aguardando (com o botão de voltar ao pagamento e a validade), recusado ("Tentar de novo"), Pix gerado, pago, evento criado ("Entrar no painel"), expirado ("Fazer um novo pedido"), cancelado e estornado. Na volta do MP usa o `payment_id` da URL, e enquanto aguarda consulta a API a cada 5 s (até 10 min, depois um "Atualizar").
+- **Endereços reservados:** a API não gera mais slug de evento `admin`, `super`, `contratar` nem `pedido` (ganham sufixo), porque essas rotas do site vêm antes de `/:slug`.
 
 ### Fase 12: pedidos no super
 1. Lista e detalhe de pedidos, cancelar, notas.
 2. "Criar evento" a partir do pedido (`order_id` em `POST /admin/super/events`).
 3. Card no dashboard.
-4. **Antes do deploy:** um pagamento real de valor baixo (ex: cupom de 99% num pedido seu) de ponta a ponta, e estorno.
+4. **Conferir no Mercado Pago:** busca o pagamento pelo número do pedido (`GET /v1/payments/search?external_reference=...`) e aplica como o webhook. Botão no detalhe do pedido no super e, na página `/pedido`, conferência automática enquanto aguarda (com limite de frequência). Fecha a brecha que o teste real de 2026-10-30 mostrou: aviso perdido + aba do MP fechada antes de voltar = pedido pago parado em "aguardando".
+5. **Antes do deploy:** um pagamento real de valor baixo (ex: cupom de 99% num pedido seu) de ponta a ponta, e estorno.
 
 ### Fase 13 (depois): criação automática
 - O webhook faz o que o botão "Criar evento" faz: cria o evento com o que veio no pedido e manda o "crie sua senha" (ou o "evento novo no painel") na hora. O super só revisa.
@@ -353,4 +372,6 @@ Cada fase vai separada, com testes no banco dev e o deploy na ordem migração �
 4. **E-mail que já é admin de outro evento:** *(Respondido primeiro como "bloquear antes de pagar". Revisto: uma conta pode ter vários eventos, fase 9, e o pedido é aceito normalmente.)*
 5. **Prazo do pedido pendente:** *(Respondido: 24 horas.)*
 6. **Data do evento:** *(Respondido: opcional, com "ainda não sei".)*
-7. **Aviso de pedido pago:** em qual e-mail você quer receber? Fica no `notify_email` do `config.local.php`, então dá pra decidir só no deploy.
+7. **Aviso de pedido pago:** *(Respondido: contato@presenzo.com.br, padrão no `config.php`.)*
+8. **WhatsApp no pedido:** *(Respondido: obrigatório.)*
+9. **Cupom de 100%:** *(Respondido: bloqueado no site, "use com a gente pelo WhatsApp". Evento de graça continua pelo super.)*
