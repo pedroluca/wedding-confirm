@@ -92,6 +92,8 @@ export default function OrderCreate() {
   }
 
   if (!canContract || !request) {
+    // Link de divulgação com cupom (/contratar?cupom=...): o cupom vai junto na mensagem.
+    const coupon = (searchParams.get('cupom') ?? '').trim().toUpperCase()
     return (
       <PageShell footer={<Copyright />}>
         <div className="w-full max-w-md text-center">
@@ -101,9 +103,15 @@ export default function OrderCreate() {
             <p className="mt-3 text-sm text-[#6b5d80]">
               Por enquanto, a contratação é pelo WhatsApp: conta pra gente como é o seu evento e a gente configura tudo
               pra você.
+              {coupon && (
+                <>
+                  {' '}
+                  O cupom <strong className="text-[#3f3450]">{coupon}</strong> já vai junto na mensagem.
+                </>
+              )}
             </p>
             <a
-              href={WHATSAPP_URL}
+              href={coupon ? whatsappLink(`Oi! Quero contratar um convite no Presenzo com o cupom ${coupon}.`) : WHATSAPP_URL}
               target="_blank"
               rel="noreferrer"
               className="mt-6 inline-flex items-center justify-center gap-2 rounded-full bg-brand-primary px-6 py-3 font-semibold text-white transition hover:bg-brand-primary-hover"

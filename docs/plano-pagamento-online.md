@@ -343,11 +343,38 @@ Como ficou:
 - **Endereços reservados:** a API não gera mais slug de evento `admin`, `super`, `contratar` nem `pedido` (ganham sufixo), porque essas rotas do site vêm antes de `/:slug`.
 
 ### Fase 12: pedidos no super
+> **Feita em 2026-10-30** no branch `feat/pedidos-super` dos dois repos, ainda sem deploy (as fases 10 e 11 já estão no `main`, PR #5). Testes contra o MP falso: API 25/25 e navegador 16/16; as fases 10 (41/41) e 11 (27/27) rodadas de novo, sem quebra.
+
 1. Lista e detalhe de pedidos, cancelar, notas.
 2. "Criar evento" a partir do pedido (`order_id` em `POST /admin/super/events`).
 3. Card no dashboard.
 4. **Conferir no Mercado Pago:** busca o pagamento pelo número do pedido (`GET /v1/payments/search?external_reference=...`) e aplica como o webhook. Botão no detalhe do pedido no super e, na página `/pedido`, conferência automática enquanto aguarda (com limite de frequência). Fecha a brecha que o teste real de 2026-10-30 mostrou: aviso perdido + aba do MP fechada antes de voltar = pedido pago parado em "aguardando".
-5. **Antes do deploy:** um pagamento real de valor baixo (ex: cupom de 99% num pedido seu) de ponta a ponta, e estorno.
+5. **Antes de divulgar:** um pagamento real de valor baixo (ex: cupom de 99% num pedido seu) de ponta a ponta, e estorno.
+
+Como ficou:
+- **Super › Pedidos** (`/super/pedidos`): abas "Pagos aguardando" (abre nela quando há algum), "Aguardando pagamento" e "Todos", com cliente, data, status e forma de pagamento.
+- **Detalhe** (`/super/pedidos/:id`): cliente (email e WhatsApp com link), evento e observação do cliente, orçamento, pagamento, diário de avisos do MP (de onde veio cada um: aviso, volta do cliente, página do pedido, conferido no super), notas e "Cancelar pedido" (aguardando, expirado ou pago; pedido que já virou evento não cancela).
+- **Criar evento:** abre "Novo evento" com `?pedido=ID` já preenchido (tipo, nomes, data com aviso de ajustar o horário, plano, lista, faixa, admins e o cliente como primeiro admin). O valor cobrado fica travado, e a calculadora some. A API trava o pedido (`FOR UPDATE`): dois cliques não criam dois eventos. O evento grava o orçamento, o cupom, o valor pago, a data do pagamento (entra no "Recebido no mês") e uma nota "Pago pelo site: Pix, Mercado Pago …". Se o email do cliente já tem conta, o evento entra na conta dela (fase 9).
+- **Conferir no Mercado Pago:** botão no detalhe e, na página `/pedido`, automático enquanto aguarda, no máximo a cada 30 s por pedido (coluna `orders.mp_checked_at`, incluída na migração 022). A conferência automática que não muda nada não vai pro diário.
+- **Dashboard:** faixa verde "N pedidos pagos pelo site esperando virar evento", com link pra aba dos pagos.
+
+### Deploy das fases 10 a 12
+
+Nada disso aparece para o cliente enquanto o servidor não tiver o `access_token`: `GET /pricing` responde `checkout.enabled = false` e o site segue no WhatsApp. Então dá pra subir o código antes e ligar depois.
+
+1. **Banco:** `sql/deploy_022.sql` no phpMyAdmin (com o banco do Presenzo selecionado). Re-executável: se a versão anterior dele já rodou, esta só acrescenta a coluna `mp_checked_at`. **Importante:** a API das fases 10–11 já consulta a tabela `orders` na contagem de usos de cupom; se essa API já está no ar sem a 022, rode o SQL antes de qualquer outra coisa.
+2. **API:** subir os arquivos da API (sem mexer no `config.local.php` do servidor).
+3. **Front:** `pnpm build` e subir o `dist`.
+4. **Mercado Pago, produção:**
+   - credenciais de **produção** da aplicação Integracao-Presenzo (o MP pede os dados do negócio para liberar);
+   - em Webhooks, aba **Modo de produção**: URL `https://api.presenzo.com.br/webhooks/mercadopago`, evento **Pagamentos (legacy)**, salvar e copiar a assinatura secreta.
+5. **`config.local.php` do servidor:**
+   ```php
+   'app' => ['api_url' => 'https://api.presenzo.com.br'],
+   'mercadopago' => ['access_token' => 'APP_USR-…', 'webhook_secret' => '…'],
+   ```
+   A partir daqui o "Contratar" aparece no site.
+6. **Teste de verdade:** um pedido seu com um cupom de 99% (fica uns R$ 2), pagar com Pix ou cartão, conferir que o Mercado Pago **volta sozinho** pro `/pedido` (em `https` o `auto_return` vale), que o pedido vira pago, os dois emails (cliente e contato@) e "Criar evento" no super. Depois estornar no painel do MP e ver o pedido virar "Estornado".
 
 ### Fase 13 (depois): criação automática
 - O webhook faz o que o botão "Criar evento" faz: cria o evento com o que veio no pedido e manda o "crie sua senha" (ou o "evento novo no painel") na hora. O super só revisa.

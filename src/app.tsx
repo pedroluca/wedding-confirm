@@ -22,6 +22,8 @@ import SuperDashboard from './pages/super/SuperDashboard'
 import SuperEventList from './pages/super/SuperEventList'
 import SuperEventCreate from './pages/super/SuperEventCreate'
 import SuperEventDetail from './pages/super/SuperEventDetail'
+import SuperOrderDetail from './pages/super/SuperOrderDetail'
+import SuperOrderList from './pages/super/SuperOrderList'
 import SuperGiftTemplates from './pages/super/SuperGiftTemplates'
 import SuperPricing from './pages/super/SuperPricing'
 
@@ -57,6 +59,8 @@ function App() {
         <Route path="eventos/novo" element={<SuperEventCreate />} />
         <Route path="eventos/:eventId" element={<SuperEventDetail />} />
         <Route path="eventos/:eventId/admins" element={<EventAdminsRedirect />} />
+        <Route path="pedidos" element={<SuperOrderList />} />
+        <Route path="pedidos/:orderId" element={<SuperOrderDetail />} />
         <Route path="presentes-sugeridos" element={<SuperGiftTemplates />} />
         <Route path="precos" element={<SuperPricing />} />
       </Route>

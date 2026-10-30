@@ -6,6 +6,8 @@ type ConfirmDialogProps = {
   description?: ReactNode
   confirmLabel?: string
   loadingLabel?: string
+  /** Texto do botão de desistir (ex: "Voltar" quando a ação já se chama "Cancelar pedido"). */
+  cancelLabel?: string
   loading?: boolean
   onConfirm: () => void
   onCancel: () => void
@@ -21,6 +23,7 @@ export function ConfirmDialog({
   description,
   confirmLabel = 'Remover',
   loadingLabel = 'Removendo...',
+  cancelLabel = 'Cancelar',
   loading = false,
   onConfirm,
   onCancel,
@@ -63,7 +66,7 @@ export function ConfirmDialog({
             onClick={onCancel}
             className="cursor-pointer flex-1 rounded-full border border-brand-primary-soft px-4 py-2.5 font-medium text-[#3f3450] hover:bg-brand-primary-soft disabled:opacity-60"
           >
-            Cancelar
+            {cancelLabel}
           </button>
           <button
             type="button"
