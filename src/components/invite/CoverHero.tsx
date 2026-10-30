@@ -1,5 +1,6 @@
 import { useEvent } from '../../lib/eventContext'
 import {
+  coverObjectPosition,
   formatEventDay,
   formatEventTime,
   formatEventWeekday,
@@ -46,6 +47,11 @@ function EventDateLine() {
  * Topo da tela interna. Com foto do casal: foto nítida em cima que vai
  * desfocando e esmaecendo até a cor do papel, com nomes e data por cima do
  * fade. Sem foto: logo + nomes, como no convite antigo.
+ *
+ * O recorte fica em volta do ponto de foco do admin. No computador a foto
+ * nítida fica numa moldura no centro (de ponta a ponta, uma foto vertical
+ * mostraria só uma faixa do meio), e a própria foto desfocada preenche as
+ * laterais.
  */
 export function CoverHero() {
   const event = useEvent()
@@ -66,15 +72,32 @@ export function CoverHero() {
     )
   }
 
+  const objectPosition = coverObjectPosition(event)
+
   return (
     <header className="relative flex h-[72svh] min-h-120 items-end overflow-hidden">
-      <img src={event.cover_photo_url} alt="" className="absolute inset-0 h-full w-full object-cover" />
       <img
         src={event.cover_photo_url}
         alt=""
         aria-hidden
-        className="cover-blur absolute inset-0 h-full w-full scale-110 object-cover blur-xl"
+        style={{ objectPosition }}
+        className="cover-backdrop absolute inset-0 hidden h-full w-full scale-110 object-cover blur-2xl md:block"
       />
+      <div className="cover-frame absolute inset-0 md:inset-x-auto md:left-1/2 md:w-full md:max-w-3xl md:-translate-x-1/2">
+        <img
+          src={event.cover_photo_url}
+          alt=""
+          style={{ objectPosition }}
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+        <img
+          src={event.cover_photo_url}
+          alt=""
+          aria-hidden
+          style={{ objectPosition }}
+          className="cover-blur absolute inset-0 h-full w-full scale-110 object-cover blur-xl"
+        />
+      </div>
       <div className="cover-fade absolute inset-0" />
       <div className="relative w-full px-6 pb-4 text-center">
         <HostNames />

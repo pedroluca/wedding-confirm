@@ -16,6 +16,7 @@ import {
   PackageCheck,
   Shirt,
   Sparkles,
+  Store,
   Trash2,
   UserCog,
   Users,
@@ -32,7 +33,7 @@ import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { InviteStylePicker } from '../../components/InviteStylePicker'
 import { AccessBadge } from '../../components/panel/AccessBadge'
 import { GuestBandBadge } from '../../components/panel/GuestBand'
-import { PlanBadge } from '../../components/panel/PlanBadge'
+import { DemoBadge, PlanBadge } from '../../components/panel/PlanBadge'
 import { PlanPicker } from '../../components/panel/PlanPicker'
 import { QuoteCalculator } from '../../components/panel/QuoteCalculator'
 import {
@@ -91,6 +92,7 @@ type EditForm = {
   gifts_enabled: boolean
   guest_limit: string
   admin_limit: string
+  is_demo: boolean
   access_expires_at: string
   price_charged: string
   last_payment_at: string
@@ -128,6 +130,7 @@ function toFormState(event: SuperEvent): EditForm {
     gifts_enabled: event.contract.gifts_enabled,
     guest_limit: event.contract.guest_limit !== null ? String(event.contract.guest_limit) : '',
     admin_limit: event.contract.admin_limit !== null ? String(event.contract.admin_limit) : '',
+    is_demo: event.is_demo === true,
     access_expires_at: toDatetimeLocalValue(event.access_expires_at),
     price_charged: event.price_charged !== null ? String(event.price_charged) : '',
     last_payment_at: event.last_payment_at ?? '',
@@ -154,6 +157,7 @@ function toPayload(form: EditForm) {
     gifts_enabled: form.gifts_enabled,
     guest_limit: form.guest_limit,
     admin_limit: form.admin_limit,
+    is_demo: form.is_demo,
     event_date: form.event_date || undefined,
     venue_name: form.venue_name.trim() || undefined,
     venue_name_secondary: form.venue_name_secondary.trim() || undefined,
@@ -357,6 +361,7 @@ export default function SuperEventDetail() {
               {event.subtitle && <span>{event.subtitle} ·</span>}
               <span>/{event.slug}</span>
               <PlanBadge plan={event.plan} />
+              {event.is_demo && <DemoBadge />}
               <GuestBandBadge band={band} />
               <AccessBadge expiresAt={event.access_expires_at} />
             </span>
@@ -450,6 +455,7 @@ export default function SuperEventDetail() {
                 </div>
                 <dl className="mt-2 divide-y divide-[#f3eef5]">
                   <InfoRow label="Plano">{PLAN_LABELS[event.plan]}</InfoRow>
+                  {event.is_demo && <InfoRow label="Vitrine da home">Evento de exemplo</InfoRow>}
                   <InfoRow label="Lista de presentes">{event.gifts_enabled ? 'Ligada' : 'Desligada'}</InfoRow>
                   {band && (
                     <InfoRow label="Faixa de convidados">
@@ -798,6 +804,29 @@ export default function SuperEventDetail() {
                   convidar mais.
                 </span>
               </label>
+            </Section>
+
+            <Section
+              icon={<Store size={18} />}
+              title="Vitrine da página inicial"
+              description="Eventos de exemplo aparecem na home para qualquer visitante abrir."
+            >
+              <div className="sm:col-span-2">
+                <label className={checkboxLabelClass}>
+                  <input
+                    type="checkbox"
+                    checked={form.is_demo}
+                    onChange={(e) => update('is_demo', e.target.checked)}
+                    className="accent-brand-primary"
+                  />
+                  Evento de exemplo
+                </label>
+                <span className={hintClass}>
+                  A home mostra o primeiro convite cadastrado nele. Lá, confirmar presença e escolher presente não
+                  gravam nada, a chave Pix não aparece e o evento fica fora dos números do dashboard. Use o plano
+                  Ilimitado, para não ter prazo nem limite.
+                </span>
+              </div>
             </Section>
 
             <Section

@@ -3,6 +3,7 @@ import { Outlet, useParams } from 'react-router-dom'
 import { api, ApiError } from '../lib/api'
 import { EventContext } from '../lib/eventContext'
 import { MusicProvider } from '../lib/music'
+import { DemoBanner } from '../components/DemoBanner'
 import { PageShell } from '../components/PageShell'
 import type { PublicEvent } from '../types'
 
@@ -85,6 +86,7 @@ export default function EventLayout() {
   return (
     <EventContext.Provider value={event}>
       <MusicProvider src={event.music_url}>
+        {event.is_demo && <DemoBanner eventType={event.event_type} />}
         <Outlet />
       </MusicProvider>
     </EventContext.Provider>

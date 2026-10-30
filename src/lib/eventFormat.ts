@@ -1,4 +1,4 @@
-import type { NameFont } from '../types'
+import type { NameFont, PublicEvent } from '../types'
 
 export const NAME_FONT_CLASSES: Record<NameFont, string> = {
   sans: 'font-sans text-5xl',
@@ -10,6 +10,14 @@ export const NAME_FONT_CLASSES_COMPACT: Record<NameFont, string> = {
   sans: 'font-sans text-2xl',
   fleur: 'font-fleur text-4xl',
   pinyon: 'font-pinyon text-4xl',
+}
+
+/**
+ * object-position da foto de capa: o recorte fica em volta do ponto de foco
+ * escolhido pelo admin. Sem o campo (API anterior), o centro de sempre.
+ */
+export function coverObjectPosition(event: Partial<Pick<PublicEvent, 'cover_focus_x' | 'cover_focus_y'>>): string {
+  return `${event.cover_focus_x ?? 50}% ${event.cover_focus_y ?? 50}%`
 }
 
 /** Opções do seletor de fonte do nome (configurações e super-admin). */

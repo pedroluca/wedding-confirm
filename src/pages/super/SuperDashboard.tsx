@@ -60,7 +60,8 @@ export default function SuperDashboard() {
   useEffect(() => {
     api
       .get<{ events: SuperEvent[] }>('/admin/super/events', token)
-      .then((res) => setEvents(res.events))
+      // Os exemplos da vitrine da home não são clientes: ficam fora dos números.
+      .then((res) => setEvents(res.events.filter((event) => !event.is_demo)))
       .catch(() => setError(true))
   }, [token])
 

@@ -21,6 +21,9 @@ export function GiftClaimModal({ gift, eventSlug, guestSlug, onClose, onClaimed 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
+  // O exemplo da home não recebe a chave (um visitante poderia pagar pra
+  // ela), mas mostra onde ela aparece.
+  const showPix = Boolean(event.pix_key) || event.is_demo
 
   const copyPixKey = () => {
     if (!event.pix_key) return
@@ -87,14 +90,21 @@ export function GiftClaimModal({ gift, eventSlug, guestSlug, onClose, onClaimed 
           <div className="mt-5 space-y-4">
             <p className="text-sm text-[#6b5d80]">
               Este item é apenas uma sugestão. Você pode comprá-lo por conta própria
-              {event.pix_key && ' ou, se preferir, contribuir via Pix com qualquer valor'}. O valor abaixo é apenas uma média de preços encontrada na internet.
+              {showPix && ' ou, se preferir, contribuir via Pix com qualquer valor'}. O valor abaixo é apenas uma média de preços encontrada na internet.
             </p>
 
             <p className="text-sm font-medium text-[#3f3450]">
               Sugestão de valor: {currency.format(gift.suggested_amount)}
             </p>
 
-            {event.pix_key && (
+            {event.is_demo ? (
+              <div>
+                <p className="text-xs font-medium text-[#8b7a9c]">Chave Pix</p>
+                <p className="mt-1 rounded-xl border border-dashed border-brand-primary/40 bg-brand-primary-soft/40 px-4 py-2 text-sm text-[#6b5d80] italic">
+                  No seu convite, aqui aparece a sua chave Pix.
+                </p>
+              </div>
+            ) : event.pix_key && (
               <div>
                 <p className="text-xs font-medium text-[#8b7a9c]">Chave Pix</p>
                 <button

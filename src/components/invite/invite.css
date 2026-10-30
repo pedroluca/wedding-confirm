@@ -707,6 +707,19 @@
   mask-image: linear-gradient(to bottom, transparent 38%, #000 78%);
 }
 
+/* Computador: a moldura da foto nítida some nas laterais, por cima da
+   própria foto desfocada (.cover-backdrop) que ocupa a largura toda. */
+@media (min-width: 48rem) {
+  .cover-frame {
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 14%, #000 86%, transparent);
+    mask-image: linear-gradient(to right, transparent, #000 14%, #000 86%, transparent);
+  }
+}
+
+.cover-backdrop {
+  opacity: 0.55;
+}
+
 .cover-fade {
   background: linear-gradient(
     to bottom,
