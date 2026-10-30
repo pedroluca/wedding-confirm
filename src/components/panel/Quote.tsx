@@ -147,6 +147,11 @@ export function QuoteSummary({
           {currencyFormatter.format(quote.total)}
         </span>
       </div>
+      {quote.coupon?.remaining !== undefined && (
+        <p className="mt-2 text-sm font-medium text-emerald-700">
+          {quote.coupon.remaining === 1 ? 'Resta 1 uso' : `Restam ${quote.coupon.remaining} usos`} com este cupom
+        </p>
+      )}
       {quote.coupon_error && <p className="mt-2 text-sm text-amber-700">{quote.coupon_error}</p>}
       {error && <p className="mt-2 text-sm text-rose-600">{error}</p>}
     </div>

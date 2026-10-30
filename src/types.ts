@@ -186,11 +186,15 @@ export type Coupon = {
   /** 20 = 20% ou R$ 20,00, conforme discount_type. */
   discount_value: number
   valid_until: string | null
+  /** Quantos eventos podem ser vendidos com ele (os "5 primeiros"). null = sem limite. */
+  max_uses: number | null
   active: boolean
   notes: string | null
   created_at: string
   /** Quantos eventos foram vendidos com este cupom (só na lista do super-admin). */
   uses?: number
+  /** Usos que ainda restam, quando tem limite (só no orçamento). */
+  remaining?: number
 }
 
 export type QuoteRequest = {
@@ -200,6 +204,8 @@ export type QuoteRequest = {
   premium: boolean
   extra_admins: number
   coupon?: string
+  /** Evento cujo orçamento está sendo recalculado: não conta contra o limite do próprio cupom. */
+  event_id?: number
 }
 
 /** Orçamento calculado pela API (POST /pricing/quote). O cupom vem como item negativo. */
