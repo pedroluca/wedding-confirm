@@ -15,6 +15,7 @@ import {
   shareMessageVariables,
 } from '../../lib/shareMessage'
 import { InviteStylePicker } from '../../components/InviteStylePicker'
+import { CoverFocusPicker, type CoverFocus } from '../../components/panel/CoverFocusPicker'
 import {
   boxClass,
   boxTitleClass,
@@ -56,6 +57,7 @@ type SettingsForm = {
   logo: File | null
   cover_photo: File | null
   remove_cover_photo: boolean
+  cover_focus: CoverFocus
   music: File | null
   remove_music: boolean
 }
@@ -103,6 +105,7 @@ function toFormState(event: AdminEvent): SettingsForm {
     logo: null,
     cover_photo: null,
     remove_cover_photo: false,
+    cover_focus: { x: event.cover_focus_x ?? 50, y: event.cover_focus_y ?? 50 },
     music: null,
     remove_music: false,
   }
@@ -138,6 +141,8 @@ function toFormData(form: SettingsForm, eventType: EventType): FormData {
   } else if (form.remove_cover_photo) {
     data.set('remove_cover_photo', '1')
   }
+  data.set('cover_focus_x', String(form.cover_focus.x))
+  data.set('cover_focus_y', String(form.cover_focus.y))
   if (form.music) {
     data.set('music', form.music)
   } else if (form.remove_music) {
@@ -208,7 +213,7 @@ export default function AdminSettings() {
     setPreparingCover(true)
     const resized = await resizeImage(file)
     setPreparingCover(false)
-    setForm((prev) => ({ ...prev, cover_photo: resized, remove_cover_photo: false }))
+    setForm((prev) => ({ ...prev, cover_photo: resized, remove_cover_photo: false, cover_focus: { x: 50, y: 50 } }))
     setCoverPreview(URL.createObjectURL(resized))
   }
 
@@ -539,17 +544,19 @@ export default function AdminSettings() {
           <div className={boxClass}>
             <p className={boxTitleClass}>Foto de capa</p>
             <p className={hintClass}>
-              Aparece no topo do convite e vai desfocando até o fundo. Fotos na vertical funcionam melhor.
+              Aparece no topo do convite e vai desfocando até o fundo. Clique na foto no ponto que não pode ser
+              cortado (o rosto, o casal): as prévias mostram o recorte no celular e no computador.
             </p>
-            {shownCover && (
-              <img
-                src={shownCover}
-                alt=""
-                className={`h-40 w-32 rounded-xl object-cover transition ${
-                  form.remove_cover_photo ? 'opacity-40 grayscale' : ''
-                }`}
-              />
-            )}
+            {shownCover &&
+              (form.remove_cover_photo ? (
+                <img src={shownCover} alt="" className="h-40 w-32 rounded-xl object-cover opacity-40 grayscale transition" />
+              ) : (
+                <CoverFocusPicker
+                  src={shownCover}
+                  focus={form.cover_focus}
+                  onChange={(cover_focus) => setForm((prev) => ({ ...prev, cover_focus }))}
+                />
+              ))}
             <input
               ref={coverRef}
               type="file"

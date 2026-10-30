@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, useLocation, useParams } from 'react-router-dom'
 import { api, ApiError } from '../lib/api'
+import { rememberDemoClaim, withDemoClaims } from '../lib/demo'
 import { useEvent } from '../lib/eventContext'
 import { giftsEnabled } from '../lib/plans'
 import { GiftClaimModal } from '../components/GiftClaimModal'
@@ -20,6 +21,8 @@ export default function GuestGifts() {
 
 function GuestGiftsPage() {
   const { eventSlug = '', guestSlug = '' } = useParams()
+  const { is_demo: isDemo } = useEvent()
+  const demoKey = `${eventSlug}/${guestSlug}`
   // Aberta pelo botão "Lista de presentes" do convite (e não pela tela de
   // confirmação): o "Voltar" leva de volta pro convite.
   const cameFromInvite = (useLocation().state as { from?: string } | null)?.from === 'invite'
@@ -33,7 +36,7 @@ function GuestGiftsPage() {
     api
       .get<{ gifts: Gift[] }>(`/events/${eventSlug}/guests/${guestSlug}/gifts`)
       .then((res) => {
-        if (active) setGifts(res.gifts)
+        if (active) setGifts(isDemo ? withDemoClaims(demoKey, res.gifts) : res.gifts)
       })
       .catch((err) => {
         if (!active) return
@@ -49,9 +52,10 @@ function GuestGiftsPage() {
     return () => {
       active = false
     }
-  }, [eventSlug, guestSlug])
+  }, [eventSlug, guestSlug, isDemo, demoKey])
 
   const handleClaimed = (giftId: number) => {
+    if (isDemo) rememberDemoClaim(demoKey, giftId)
     setGifts((prev) => prev.map((g) => (g.id === giftId ? { ...g, claimed_by_me: true } : g)))
   }
 

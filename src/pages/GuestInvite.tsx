@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { api, ApiError } from '../lib/api'
+import { withDemoAnswers } from '../lib/demo'
+import { useEvent } from '../lib/eventContext'
 import { PageShell } from '../components/PageShell'
 import { Invite } from '../components/invite/Invite'
 import type { GuestInviteResponse } from '../types'
 
 export default function GuestInvite() {
   const { eventSlug = '', guestSlug = '' } = useParams()
+  const { is_demo: isDemo } = useEvent()
   const [data, setData] = useState<GuestInviteResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -20,7 +23,7 @@ export default function GuestInvite() {
       api
         .get<GuestInviteResponse>(`/events/${eventSlug}/guests/${guestSlug}`)
         .then((res) => {
-          if (active) setData(res)
+          if (active) setData(isDemo ? withDemoAnswers(`${eventSlug}/${guestSlug}`, res) : res)
         })
         .catch((err) => {
           if (!active) return
@@ -39,7 +42,7 @@ export default function GuestInvite() {
     return () => {
       active = false
     }
-  }, [eventSlug, guestSlug])
+  }, [eventSlug, guestSlug, isDemo])
 
   if (loading) {
     return (

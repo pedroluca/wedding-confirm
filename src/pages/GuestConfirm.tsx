@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api, ApiError } from '../lib/api'
+import { rememberDemoAnswers, withDemoAnswers } from '../lib/demo'
 import { useEvent } from '../lib/eventContext'
 import { giftsEnabled } from '../lib/plans'
 import { Checkbox } from '../components/Checkbox'
+import { DemoCta } from '../components/DemoBanner'
 import { InviteDetails } from '../components/InviteDetails'
 import { PageShell } from '../components/PageShell'
 import type { GuestInviteResponse } from '../types'
@@ -18,12 +20,15 @@ export default function GuestConfirm() {
   const [saving, setSaving] = useState(false)
   const [done, setDone] = useState(false)
 
+  const demoKey = `${eventSlug}/${guestSlug}`
+
   useEffect(() => {
     let active = true
     api
       .get<GuestInviteResponse>(`/events/${eventSlug}/guests/${guestSlug}`)
-      .then((res) => {
+      .then((loaded) => {
         if (!active) return
+        const res = event.is_demo ? withDemoAnswers(demoKey, loaded) : loaded
         setData(res)
         setChecked(Object.fromEntries(res.members.map((m) => [m.id, m.status !== 'recusado'])))
       })
@@ -41,16 +46,19 @@ export default function GuestConfirm() {
     return () => {
       active = false
     }
-  }, [eventSlug, guestSlug])
+  }, [eventSlug, guestSlug, event.is_demo, demoKey])
 
   const handleSubmit = async () => {
     if (!data) return
     setSaving(true)
     setError(null)
     try {
-      await api.post(`/events/${eventSlug}/guests/${guestSlug}/confirm`, {
-        items: data.members.map((m) => ({ id: m.id, confirmed: checked[m.id] ?? false })),
-      })
+      const res = await api.post<Pick<GuestInviteResponse, 'members'>>(
+        `/events/${eventSlug}/guests/${guestSlug}/confirm`,
+        { items: data.members.map((m) => ({ id: m.id, confirmed: checked[m.id] ?? false })) }
+      )
+      // No exemplo a API só devolve como ficaria; o convite lê daqui.
+      if (event.is_demo) rememberDemoAnswers(demoKey, res.members)
       setDone(true)
     } catch {
       setError('Não foi possível salvar sua confirmação. Tente novamente.')
@@ -89,6 +97,18 @@ export default function GuestConfirm() {
             >
               Não sabe o que dar de presente?
             </Link>
+          )}
+
+          {event.is_demo && (
+            <>
+              <Link
+                to={`/${eventSlug}/${guestSlug}`}
+                className="mt-4 block text-center text-sm text-brand-primary underline"
+              >
+                Voltar ao convite
+              </Link>
+              <DemoCta eventType={event.event_type} />
+            </>
           )}
         </div>
       </PageShell>

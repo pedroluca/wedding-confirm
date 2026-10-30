@@ -41,6 +41,9 @@ export type PublicEvent = {
   pix_key: string | null
   logo_url: string | null
   cover_photo_url: string | null
+  /** Ponto de foco da capa, em % da foto (50/50 = centro): o recorte fica em volta dele. */
+  cover_focus_x: number
+  cover_focus_y: number
   music_url: string | null
   color_primary: string
   name_font: NameFont
@@ -52,6 +55,29 @@ export type PublicEvent = {
   gifts_enabled: boolean
   /** "Feito com Presenzo" no rodapé do convite (some só no Premium). */
   show_credit: boolean
+  /**
+   * Evento de exemplo da vitrine da home: confirmar e escolher presente não
+   * gravam nada, e a chave Pix nunca vem (o convite mostra um aviso).
+   */
+  is_demo: boolean
+}
+
+/** Evento de exemplo na vitrine da home (GET /demos), com o link de um convite dele. */
+export type DemoEvent = Pick<
+  PublicEvent,
+  | 'slug'
+  | 'event_type'
+  | 'host_name'
+  | 'host_name_secondary'
+  | 'subtitle'
+  | 'color_primary'
+  | 'name_font'
+  | 'invite_style'
+  | 'cover_photo_url'
+  | 'cover_focus_x'
+  | 'cover_focus_y'
+> & {
+  guest_slug: string
 }
 
 export type AdminEvent = PublicEvent & {
