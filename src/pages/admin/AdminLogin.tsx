@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
-import { useAdminAuth } from '../../lib/adminAuthContext'
+import { ApiError } from '../../lib/api'
+import { sessionHomePath, useAdminAuth } from '../../lib/adminAuthContext'
 import { PageShell } from '../../components/PageShell'
 
 export default function AdminLogin() {
@@ -14,7 +15,7 @@ export default function AdminLogin() {
   const [loading, setLoading] = useState(false)
 
   if (session) {
-    return <Navigate to={session.admin.event_id === null ? '/super' : '/admin'} replace />
+    return <Navigate to={sessionHomePath(session)} replace />
   }
 
   const handleSubmit = async (e: FormEvent) => {
@@ -23,9 +24,10 @@ export default function AdminLogin() {
     setError(null)
     try {
       const data = await login(email, password)
-      navigate(data.admin.event_id === null ? '/super' : '/admin', { replace: true })
-    } catch {
-      setError('Email ou senha inválidos.')
+      navigate(sessionHomePath(data), { replace: true })
+    } catch (err) {
+      // 403: senha certa, mas a conta ficou sem eventos (a API explica).
+      setError(err instanceof ApiError && err.status === 403 ? err.message : 'Email ou senha inválidos.')
     } finally {
       setLoading(false)
     }

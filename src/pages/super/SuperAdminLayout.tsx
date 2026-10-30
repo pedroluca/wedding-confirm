@@ -1,6 +1,6 @@
 import { Navigate, Outlet } from 'react-router-dom'
 import { BadgeDollarSign, CalendarHeart, Gift, LayoutDashboard } from 'lucide-react'
-import { useAdminAuth } from '../../lib/adminAuthContext'
+import { isSuperSession, useAdminAuth } from '../../lib/adminAuthContext'
 import { PanelLayout, type PanelNavItem } from '../../components/panel/PanelLayout'
 
 const NAV: PanelNavItem[] = [
@@ -18,7 +18,7 @@ export default function SuperAdminLayout() {
   }
 
   // Sessão de admin de evento caiu numa rota de super-admin por engano.
-  if (session.admin.event_id !== null) {
+  if (!isSuperSession(session)) {
     return <Navigate to="/admin" replace />
   }
 

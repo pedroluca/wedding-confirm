@@ -1,4 +1,7 @@
-export function AccessExpired() {
+import type { ReactNode } from 'react'
+
+/** `action` aparece no fim do cartão (ex: "Ver meus outros eventos" pra quem tem mais de um). */
+export function AccessExpired({ action }: { action?: ReactNode }) {
   return (
     <div className="mx-auto max-w-md rounded-3xl border border-brand-primary-soft bg-white p-8 text-center shadow-lg shadow-brand-primary-soft">
       <h1 className="text-xl font-semibold text-[#3f3450]">Acesso expirado</h1>
@@ -7,6 +10,7 @@ export function AccessExpired() {
         funcionando normalmente para os convidados — para renovar o acesso administrativo, entre
         em contato com o suporte.
       </p>
+      {action && <div className="mt-5">{action}</div>}
     </div>
   )
 }

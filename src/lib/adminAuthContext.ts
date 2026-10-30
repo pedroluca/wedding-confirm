@@ -1,7 +1,11 @@
 import { createContext, useContext } from 'react'
-import type { AdminInfo } from '../types'
+import type { AccountEvent, AdminInfo } from '../types'
 
-export type Session = { token: string; admin: AdminInfo }
+/** Resposta do login, de "entrar como admin", de /admin/me e da troca de evento. */
+export type SessionPayload = { admin: AdminInfo; events?: AccountEvent[] }
+
+/** events fica ausente em sessões salvas antes de a conta poder ter vários eventos. */
+export type Session = SessionPayload & { token: string }
 
 export type AuthContextValue = {
   session: Session | null
@@ -14,6 +18,13 @@ export type AuthContextValue = {
   startImpersonation: (eventSession: Session) => void
   /** Encerra a sessão do evento e volta pra do super-admin. Devolve o id do evento. */
   stopImpersonation: () => number | null
+  /** Troca o evento ativo da sessão, entre os eventos da conta. */
+  switchEvent: (eventId: number) => Promise<void>
+  /**
+   * Busca de novo a conta e a lista de eventos da sessão com este token (um
+   * evento novo ligado à conta aparece sem entrar de novo).
+   */
+  refreshSession: (token: string) => Promise<void>
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null)
@@ -24,4 +35,15 @@ export function useAdminAuth(): AuthContextValue {
     throw new Error('useAdminAuth deve ser usado dentro de <AdminAuthProvider>.')
   }
   return ctx
+}
+
+/** Sessão de super-admin? As salvas antes de existir is_super usam o sinal antigo. */
+export function isSuperSession(session: Session): boolean {
+  return session.admin.is_super ?? session.admin.event_id === null
+}
+
+/** Para onde vai quem acabou de entrar: super, escolher evento ou o painel. */
+export function sessionHomePath(session: Session): string {
+  if (isSuperSession(session)) return '/super'
+  return (session.events?.length ?? 0) > 1 ? '/admin/eventos' : '/admin'
 }

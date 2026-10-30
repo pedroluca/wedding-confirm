@@ -10,6 +10,7 @@ import AdminLogin from './pages/admin/AdminLogin'
 import ForgotPassword from './pages/admin/ForgotPassword'
 import ResetPassword from './pages/admin/ResetPassword'
 import AdminLayout from './pages/admin/AdminLayout'
+import AdminEventPicker from './pages/admin/AdminEventPicker'
 import AdminConfirmations from './pages/admin/AdminConfirmations'
 import AdminGuests from './pages/admin/AdminGuests'
 import AdminGifts from './pages/admin/AdminGifts'
@@ -36,6 +37,7 @@ function App() {
       <Route path="/admin/login" element={<AdminLogin />} />
       <Route path="/admin/forgot-password" element={<ForgotPassword />} />
       <Route path="/admin/reset-password" element={<ResetPassword />} />
+      <Route path="/admin/eventos" element={<AdminEventPicker />} />
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<Navigate to="presencas" replace />} />
         <Route path="presencas" element={<AdminConfirmations />} />

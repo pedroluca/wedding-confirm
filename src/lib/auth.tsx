@@ -1,6 +1,6 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { api } from './api'
-import { AuthContext, type Session } from './adminAuthContext'
+import { AuthContext, type Session, type SessionPayload } from './adminAuthContext'
 
 const STORAGE_KEY = 'wedding_admin_session'
 // Sessão do super-admin enquanto ele está no painel de um evento ("entrar como admin").
@@ -65,8 +65,33 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     setSession(null)
   }
 
+  const switchEvent = async (eventId: number) => {
+    if (!session) return
+    const token = session.token
+    const data = await api.post<SessionPayload>('/admin/session/event', { event_id: eventId }, token)
+    setSession({ ...data, token })
+  }
+
+  // Estável (só usa o token recebido e o setter), pra poder ir na lista de
+  // dependências de um efeito sem disparar de novo a cada render.
+  const refreshSession = useCallback(async (token: string) => {
+    const data = await api.get<SessionPayload>('/admin/me', token)
+    setSession((current) => (current?.token === token ? { ...data, token } : current))
+  }, [])
+
   return (
-    <AuthContext.Provider value={{ session, login, logout, superSession, startImpersonation, stopImpersonation }}>
+    <AuthContext.Provider
+      value={{
+        session,
+        login,
+        logout,
+        superSession,
+        startImpersonation,
+        stopImpersonation,
+        switchEvent,
+        refreshSession,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   )

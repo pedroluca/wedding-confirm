@@ -9,11 +9,18 @@ import type { AdminUser } from '../../types'
 
 const dateFormatter = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' })
 
+function otherEventsOf(admin: AdminUser): string[] {
+  return (admin.other_events ?? []).map((event) => event.label)
+}
+
 /**
  * Admins de um evento (aba "Admins" da página do evento no super-admin):
  * convidar (o admin recebe um email pra definir a senha), editar e remover.
- * onChange avisa a página pra atualizar a contagem de admins. adminLimit
- * (os admins contratados, null = sem limite) só informa: não impede convidar.
+ * Uma conta pode administrar vários eventos: convidar um email que já tem
+ * conta só liga a conta a este evento, editar muda a conta em todos os
+ * eventos dela e remover tira só deste. onChange avisa a página pra
+ * atualizar a contagem de admins. adminLimit (os admins contratados, null =
+ * sem limite) só informa: não impede convidar.
  */
 export function EventAdminsPanel({
   eventId,
@@ -34,7 +41,7 @@ export function EventAdminsPanel({
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [creating, setCreating] = useState(false)
-  const [invitedEmail, setInvitedEmail] = useState<string | null>(null)
+  const [created, setCreated] = useState<string | null>(null)
 
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editName, setEditName] = useState('')
@@ -61,10 +68,18 @@ export function EventAdminsPanel({
     e.preventDefault()
     setCreating(true)
     setError(null)
-    setInvitedEmail(null)
+    setCreated(null)
     try {
-      await api.post(`/admin/super/events/${eventId}/admins`, { name: name.trim(), email: email.trim() }, token)
-      setInvitedEmail(email.trim())
+      const res = await api.post<{ admin: AdminUser; existing_account: boolean }>(
+        `/admin/super/events/${eventId}/admins`,
+        { name: name.trim(), email: email.trim() },
+        token
+      )
+      setCreated(
+        res.existing_account
+          ? `${res.admin.name} já tinha conta e agora também administra este evento. Avisamos por email.`
+          : `Convite enviado para ${res.admin.email}.`
+      )
       setName('')
       setEmail('')
       reload()
@@ -121,7 +136,8 @@ export function EventAdminsPanel({
           <div>
             <h2 className="font-semibold text-[#3f3450]">Convidar admin</h2>
             <p className="mt-0.5 text-sm text-[#8b7a9c]">
-              A pessoa recebe um email com o link pra definir a própria senha.
+              A pessoa recebe um email com o link pra definir a própria senha. Se o email já tiver conta, o
+              evento entra na lista dela.
             </p>
             {adminLimit !== null && !loading && (
               <p className={`mt-1 text-sm ${admins.length >= adminLimit ? 'text-amber-700' : 'text-[#6b5d80]'}`}>
@@ -153,10 +169,10 @@ export function EventAdminsPanel({
             {creating ? 'Convidando...' : 'Convidar'}
           </button>
         </div>
-        {invitedEmail && (
+        {created && (
           <p className="mt-3 inline-flex items-center gap-1.5 text-sm text-emerald-700">
-            <Mail size={14} />
-            Convite enviado para {invitedEmail}.
+            <Mail size={14} className="shrink-0" />
+            {created}
           </p>
         )}
       </form>
@@ -173,30 +189,37 @@ export function EventAdminsPanel({
             {admins.map((admin) => (
               <li key={admin.id} className="px-5 py-4">
                 {editingId === admin.id ? (
-                  <form onSubmit={(e) => handleUpdate(e, admin.id)} className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                    <input
-                      required
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      aria-label="Nome"
-                      className={`${fieldClass} sm:flex-1`}
-                    />
-                    <input
-                      required
-                      type="email"
-                      value={editEmail}
-                      onChange={(e) => setEditEmail(e.target.value)}
-                      aria-label="Email"
-                      className={`${fieldClass} sm:flex-1`}
-                    />
-                    <div className="flex gap-2">
-                      <button type="submit" disabled={saving} className={primaryButtonClass}>
-                        {saving ? 'Salvando...' : 'Salvar'}
-                      </button>
-                      <button type="button" onClick={() => setEditingId(null)} className={secondaryButtonClass}>
-                        Cancelar
-                      </button>
+                  <form onSubmit={(e) => handleUpdate(e, admin.id)}>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                      <input
+                        required
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        aria-label="Nome"
+                        className={`${fieldClass} sm:flex-1`}
+                      />
+                      <input
+                        required
+                        type="email"
+                        value={editEmail}
+                        onChange={(e) => setEditEmail(e.target.value)}
+                        aria-label="Email"
+                        className={`${fieldClass} sm:flex-1`}
+                      />
+                      <div className="flex gap-2">
+                        <button type="submit" disabled={saving} className={primaryButtonClass}>
+                          {saving ? 'Salvando...' : 'Salvar'}
+                        </button>
+                        <button type="button" onClick={() => setEditingId(null)} className={secondaryButtonClass}>
+                          Cancelar
+                        </button>
+                      </div>
                     </div>
+                    {otherEventsOf(admin).length > 0 && (
+                      <p className="mt-2 text-xs text-amber-700">
+                        A mudança vale também nos outros eventos dessa pessoa: {otherEventsOf(admin).join(', ')}.
+                      </p>
+                    )}
                   </form>
                 ) : (
                   <div className="flex items-center gap-4">
@@ -208,6 +231,11 @@ export function EventAdminsPanel({
                       <p className="text-sm break-all text-[#8b7a9c]">
                         {admin.email} · desde {dateFormatter.format(new Date(admin.created_at.replace(' ', 'T')))}
                       </p>
+                      {otherEventsOf(admin).length > 0 && (
+                        <p className="mt-0.5 text-xs text-[#6b5d80]">
+                          Também administra: {otherEventsOf(admin).join(', ')}
+                        </p>
+                      )}
                     </div>
                     <button
                       type="button"
@@ -238,7 +266,13 @@ export function EventAdminsPanel({
       {pendingDelete && (
         <ConfirmDialog
           title={`Remover ${pendingDelete.name}?`}
-          description={<p>Essa pessoa perde o acesso ao painel do evento. Dá pra convidar de novo depois.</p>}
+          description={
+            <p>
+              {otherEventsOf(pendingDelete).length > 0
+                ? 'Essa pessoa perde o acesso a este evento, mas continua com os outros eventos dela.'
+                : 'Essa pessoa perde o acesso ao painel do evento. Dá pra convidar de novo depois.'}
+            </p>
+          }
           loading={deleting}
           onConfirm={handleDelete}
           onCancel={() => setPendingDelete(null)}
