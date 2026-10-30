@@ -383,7 +383,7 @@ export default function SuperEventCreate() {
         <Section
           icon={<UserPlus size={18} />}
           title="Primeiro admin do evento"
-          description="Recebe um email com o link pra definir a própria senha."
+          description="Recebe um email com o link pra definir a própria senha. Se o email já tiver conta, o evento entra na lista dela."
         >
           <label className={labelClass}>
             Nome

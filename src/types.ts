@@ -5,9 +5,19 @@ export type GuestRole = 'convidado' | 'padrinho' | 'madrinha' | 'pais' | 'especi
 
 export type AdminInfo = {
   id: number
+  /** Evento ativo da sessão (null no super-admin). Uma conta pode ter vários eventos. */
   event_id: number | null
   name: string
   email: string
+  /** Ausente em sessões salvas antes de existir: aí vale o sinal antigo, event_id === null. */
+  is_super?: boolean
+}
+
+/** Um evento da conta, na lista "Seus eventos". */
+export type AccountEvent = Pick<PublicEvent, 'slug' | 'event_type' | 'host_name' | 'host_name_secondary' | 'subtitle'> & {
+  id: number
+  event_date: string | null
+  access_expired: boolean
 }
 
 export type EventType = 'wedding' | 'birthday' | 'graduation' | 'other'
@@ -266,6 +276,8 @@ export type AdminUser = {
   name: string
   email: string
   created_at: string
+  /** Outros eventos que a mesma conta administra (editar nome/email vale para todos). */
+  other_events?: { id: number; label: string }[]
 }
 
 export type Gift = {

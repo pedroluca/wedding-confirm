@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
-import { Navigate, Outlet } from 'react-router-dom'
-import { ClipboardCheck, ExternalLink, Eye, Gift, Settings, Users } from 'lucide-react'
+import { Link, Navigate, Outlet } from 'react-router-dom'
+import { ArrowLeftRight, ClipboardCheck, ExternalLink, Eye, Gift, Settings, Users } from 'lucide-react'
 import { api, ApiError } from '../../lib/api'
-import { useAdminAuth } from '../../lib/adminAuthContext'
+import { isSuperSession, useAdminAuth } from '../../lib/adminAuthContext'
 import { AdminEventContext, AdminEventSetterContext } from '../../lib/adminEventContext'
 import { parseMysqlDate } from '../../lib/eventFormat'
 import { EVENT_TYPES, formatHostNames } from '../../lib/eventTypes'
 import { giftsEnabled } from '../../lib/plans'
 import { AccessExpired } from '../../components/AccessExpired'
+import { PageShell } from '../../components/PageShell'
 import { PanelLayout, type PanelNavItem } from '../../components/panel/PanelLayout'
 import type { AdminEvent } from '../../types'
 
@@ -20,8 +21,13 @@ const NAV: PanelNavItem[] = [
 
 const dateFormatter = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })
 
-/** Cartão do evento no topo do menu: tipo, nomes, data e o link do convite. */
-function EventCard({ event }: { event: AdminEvent }) {
+const switchLinkClass = 'inline-flex items-center gap-1 text-xs font-medium text-brand-primary hover:underline'
+
+/**
+ * Cartão do evento no topo do menu: tipo, nomes, data, o link do convite e,
+ * pra quem tem mais de um evento, "Trocar evento".
+ */
+function EventCard({ event, canSwitch }: { event: AdminEvent; canSwitch: boolean }) {
   const date = event.event_date ? parseMysqlDate(event.event_date) : null
 
   return (
@@ -31,21 +37,24 @@ function EventCard({ event }: { event: AdminEvent }) {
       </p>
       <p className="mt-0.5 font-semibold text-balance break-words text-[#3f3450]">{formatHostNames(event)}</p>
       {date && <p className="text-xs text-[#8b7a9c]">{dateFormatter.format(date)}</p>}
-      <a
-        href={`/${event.slug}`}
-        target="_blank"
-        rel="noreferrer"
-        className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-brand-primary hover:underline"
-      >
-        <ExternalLink size={12} />
-        Ver convite
-      </a>
+      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+        <a href={`/${event.slug}`} target="_blank" rel="noreferrer" className={switchLinkClass}>
+          <ExternalLink size={12} />
+          Ver convite
+        </a>
+        {canSwitch && (
+          <Link to="/admin/eventos" className={switchLinkClass}>
+            <ArrowLeftRight size={12} />
+            Trocar evento
+          </Link>
+        )}
+      </div>
     </div>
   )
 }
 
 export default function AdminLayout() {
-  const { session, logout, superSession, stopImpersonation } = useAdminAuth()
+  const { session, logout, superSession, stopImpersonation, refreshSession } = useAdminAuth()
   // Pra onde ir ao voltar pro super: quem redireciona é o guard abaixo, assim
   // que a sessão volta a ser a do super-admin (um navigate() aqui disputaria
   // com ele e perderia).
@@ -53,15 +62,24 @@ export default function AdminLayout() {
   const [event, setEvent] = useState<AdminEvent | null>(null)
   const [expired, setExpired] = useState(false)
   const [loading, setLoading] = useState(true)
+  // A conta saiu do evento ativo (o super tirou o acesso): a API responde 401.
+  const [sessionLost, setSessionLost] = useState(false)
 
+  const token = session?.token ?? null
+  const eventId = session?.admin.event_id ?? null
+  const superMode = session ? isSuperSession(session) : false
+
+  // Recarrega quando o evento ativo muda (troca de evento), não a cada
+  // atualização da sessão.
   useEffect(() => {
-    if (!session || session.admin.event_id === null) return
+    if (!token || eventId === null) return
     let active = true
 
     const load = () => {
       setLoading(true)
+      setExpired(false)
       api
-        .get<{ event: AdminEvent }>('/admin/event', session.token)
+        .get<{ event: AdminEvent }>('/admin/event', token)
         .then((res) => {
           if (active) setEvent(res.event)
         })
@@ -79,7 +97,20 @@ export default function AdminLayout() {
     return () => {
       active = false
     }
-  }, [session])
+  }, [token, eventId])
+
+  // Lista de eventos atualizada (um evento novo ligado à conta aparece sem
+  // entrar de novo) e completa nas sessões salvas antes de existir a lista.
+  useEffect(() => {
+    if (!token || superMode) return
+    let active = true
+    refreshSession(token).catch((err) => {
+      if (active && err instanceof ApiError && err.status === 401) setSessionLost(true)
+    })
+    return () => {
+      active = false
+    }
+  }, [token, superMode, refreshSession])
 
   if (!session) {
     return <Navigate to="/admin/login" replace />
@@ -87,9 +118,31 @@ export default function AdminLayout() {
 
   // Sessão de super-admin caiu numa rota de evento por engano (ou acabou de
   // voltar do "entrar como admin") — manda pro lugar certo.
-  if (session.admin.event_id === null) {
+  if (superMode) {
     return <Navigate to={returnTo ?? '/super'} replace />
   }
+
+  if (sessionLost) {
+    return (
+      <PageShell>
+        <div className="w-full max-w-sm rounded-3xl border border-brand-primary-soft bg-white p-8 text-center shadow-lg shadow-brand-primary-soft">
+          <h1 className="text-xl font-semibold text-[#3f3450]">Sessão encerrada</h1>
+          <p className="mt-3 text-sm text-[#6b5d80]">
+            Você não tem mais acesso a este evento. Entre de novo para ver os seus eventos.
+          </p>
+          <button
+            type="button"
+            onClick={logout}
+            className="cursor-pointer mt-6 w-full rounded-full bg-brand-primary px-6 py-3 font-semibold text-white transition hover:bg-brand-primary-hover"
+          >
+            Entrar de novo
+          </button>
+        </div>
+      </PageShell>
+    )
+  }
+
+  const canSwitch = (session.events?.length ?? 0) > 1
 
   const backToSuper = () => {
     const eventId = stopImpersonation()
@@ -104,7 +157,7 @@ export default function AdminLayout() {
     <PanelLayout
       variant="admin"
       nav={nav}
-      context={event ? <EventCard event={event} /> : undefined}
+      context={event ? <EventCard event={event} canSwitch={canSwitch} /> : undefined}
       userName={session.admin.name}
       logoutLabel={impersonating ? 'Voltar ao super' : 'Sair'}
       onLogout={impersonating ? backToSuper : logout}
@@ -129,7 +182,15 @@ export default function AdminLayout() {
       {loading ? (
         <p className="text-[#6b5d80]">Carregando...</p>
       ) : expired ? (
-        <AccessExpired />
+        <AccessExpired
+          action={
+            canSwitch && (
+              <Link to="/admin/eventos" className="text-sm font-semibold text-brand-primary hover:underline">
+                Ver meus outros eventos
+              </Link>
+            )
+          }
+        />
       ) : event ? (
         <AdminEventSetterContext.Provider value={setEvent}>
           <AdminEventContext.Provider value={event}>
